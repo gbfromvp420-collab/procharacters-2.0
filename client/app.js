@@ -7,6 +7,7 @@ const state = {
   performing: false,
   metrics: { tokens: 0, audio: 0, frames: 0 },
   statsInterval: null,
+  icePollInterval: null,
   lastPrompt: null,
   connectionMode: 'new', // 'new' | 'resumed'
 };
@@ -176,6 +177,26 @@ async function postIceCandidate(candidate) {
   });
 }
 
+async function fetchAndAddServerCandidates(sessionId) {
+  if (!sessionId || !state.pc) return;
+  try {
+    const res = await fetch(`${API}/webrtc/session/${sessionId}/candidates?clear=true`);
+    if (!res.ok) return;
+    const data = await res.json();
+    for (const c of (data.candidates || [])) {
+      if (c && c.candidate) {
+        await state.pc.addIceCandidate(new RTCIceCandidate({
+          candidate: c.candidate,
+          sdpMid: c.sdp_mid,
+          sdpMLineIndex: c.sdp_mline_index,
+        })).catch(() => {});
+      }
+    }
+  } catch (e) {
+    // non-fatal for trickle
+  }
+}
+
 async function connect(resumeSessionId = null) {
   if (state.connected) return;
 
@@ -286,16 +307,6 @@ async function connect(resumeSessionId = null) {
 
     const answer = await offerRes.json();
 
-    if (!offerRes.ok) {
-      let detail = "SDP offer exchange failed.";
-      try {
-        const errBody = await offerRes.json();
-        if (errBody && errBody.detail) detail = errBody.detail;
-      } catch (_) {}
-      throw new Error(detail);
-    }
-    const answer = await offerRes.json();
-
     // Graceful "session not found" handling for resume:
     const returnedId = answer.session_id || state.sessionId;
     const wasNotFoundOnResume = isResume && resumeSessionId && returnedId !== resumeSessionId;
@@ -307,6 +318,9 @@ async function connect(resumeSessionId = null) {
 
     await pc.setRemoteDescription({ type: "answer", sdp: answer.sdp });
     els.avatarVideo.muted = false;
+
+    // Fetch any server-generated ICE candidates (trickle support from signaling subagent)
+    fetchAndAddServerCandidates(state.sessionId);
 
     els.disconnectBtn.disabled = false;
     els.sendBtn.disabled = false;
@@ -369,7 +383,6 @@ async function disconnect() {
   state.connected = false;
   state.performing = false;
   state.connectionMode = "new";
-  state.reconnectAttempted = false;
   state.metrics = { tokens: 0, audio: 0, frames: 0 };
   updateMetrics();
   if (els.webrtcStats) els.webrtcStats.textContent = "WebRTC: —";
