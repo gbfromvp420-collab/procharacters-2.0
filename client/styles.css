@@ -179,6 +179,36 @@ button:not(:disabled):hover {
   border-bottom: 1px solid var(--panel-border);
 }
 
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.memory-indicator {
+  font-size: 0.72rem;
+  color: var(--muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(61, 214, 140, 0.08);
+  border: 1px solid rgba(61, 214, 140, 0.2);
+  white-space: nowrap;
+}
+
+.memory-indicator::before {
+  content: "● ";
+  color: var(--success);
+  font-size: 0.65em;
+  vertical-align: middle;
+}
+
 .metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -406,4 +436,90 @@ textarea:focus {
 
 .bubble.assistant[data-ended="true"] .speaking-indicator {
   display: none;
+}
+
+.companion-config {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.config-row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.config-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.config-select {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.config-select:focus {
+  outline: 2px solid rgba(108, 140, 255, 0.3);
+  border-color: transparent;
+}
+
+.config-details {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.config-details summary {
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+  list-style-position: inside;
+}
+
+.config-details summary:hover {
+  color: var(--text);
+}
+
+.config-textarea {
+  width: 100%;
+  min-height: 64px;
+  margin-top: 8px;
+  resize: vertical;
+  font-size: 0.82rem;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--panel-border);
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  border-radius: 8px;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text);
+  border-color: rgba(108, 140, 255, 0.35);
+  background: rgba(108, 140, 255, 0.06);
+}
+
+.status-dot.reconnecting {
+  background: #f5b942;
+  box-shadow: 0 0 12px rgba(245, 185, 66, 0.5);
+  animation: reconnect-pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes reconnect-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }

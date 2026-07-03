@@ -6,6 +6,7 @@ from aiortc import RTCIceCandidate, RTCPeerConnection, RTCSessionDescription
 from aiortc.sdp import candidate_from_sdp
 
 from app.core.config import Settings
+from app.services.companion.store import SessionCompanionStore
 from app.services.webrtc.media_bridge import AvatarMediaBridge
 
 logger = logging.getLogger(__name__)
@@ -32,10 +33,16 @@ class WebRTCSession:
 class WebRTCSessionManager:
     """Manages aiortc peer connections, media bridges, and signaling."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        companion_store: SessionCompanionStore | None = None,
+    ) -> None:
         from app.core.config import get_settings
 
         self._settings = settings or get_settings()
+        self._companion_store = companion_store
         self._sessions: dict[str, WebRTCSession] = {}
 
     @property
@@ -199,6 +206,8 @@ class WebRTCSessionManager:
 
         await session.media_bridge.close(reason="session_closed")
         await session.peer_connection.close()
+        if self._companion_store is not None:
+            self._companion_store.remove(session_id)
         logger.debug("Closed WebRTC session %s", session_id)
         return True
 

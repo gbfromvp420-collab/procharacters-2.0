@@ -66,6 +66,15 @@ class Settings(BaseSettings):
     # multi-sentence responses, and spread frame "work" to better simulate real providers.
     mock_realistic: bool = True
 
+    # Companion session memory and persona
+    companion_system_prompt: str = (
+        "You are a friendly, helpful AI video companion. "
+        "Keep replies concise and conversational for spoken dialogue."
+    )
+    companion_avatars: list[str] = ["default", "professional", "casual"]
+    companion_voices: list[str] = ["default", "warm", "bright"]
+    companion_max_history_turns: int = 20
+
 
 @lru_cache
 def get_settings() -> Settings:

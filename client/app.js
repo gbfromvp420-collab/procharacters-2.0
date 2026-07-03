@@ -1,5 +1,8 @@
 const API = "/api/v1";
 
+const RECONNECT_DELAYS_MS = [1500, 3000, 5000];
+const MAX_RECONNECT_ATTEMPTS = 3;
+
 const state = {
   sessionId: null,
   pc: null,
@@ -9,7 +12,10 @@ const state = {
   statsInterval: null,
   icePollInterval: null,
   lastPrompt: null,
-  connectionMode: 'new', // 'new' | 'resumed'
+  connectionMode: "new", // 'new' | 'resumed'
+  manualDisconnect: false,
+  reconnecting: false,
+  turnCount: 0,
 };
 
 let _fullIdVisible = false;
@@ -35,15 +41,96 @@ const els = {
   sessionsSelect: document.getElementById("sessionsSelect"),
   webrtcStats: document.getElementById("webrtcStats"),
   toast: document.getElementById("toast"),
+  avatarSelect: document.getElementById("avatarSelect"),
+  voiceSelect: document.getElementById("voiceSelect"),
+  systemPromptInput: document.getElementById("systemPromptInput"),
+  clearHistoryBtn: document.getElementById("clearHistoryBtn"),
+  memoryIndicator: document.getElementById("memoryIndicator"),
 };
 
 const DEFAULT_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
-function setStatus(text, live = false) {
+function setStatus(text, live = false, reconnecting = false) {
   els.statusText.textContent = text;
-  els.statusDot.classList.toggle("live", live);
+  els.statusDot.classList.toggle("live", live && !reconnecting);
+  els.statusDot.classList.toggle("reconnecting", reconnecting);
   const pill = els.statusText ? els.statusText.parentElement : null;
   if (pill) pill.title = text;
+}
+
+function updateMemoryIndicator() {
+  if (!els.memoryIndicator) return;
+  const turns = state.turnCount;
+  els.memoryIndicator.textContent = turns > 0 ? `memory on · ${turns} turn${turns === 1 ? "" : "s"}` : "memory on";
+  els.memoryIndicator.title = "Server-side conversation memory is enabled";
+}
+
+function getCompanionConfigPayload() {
+  return {
+    avatar_id: els.avatarSelect?.value || "default",
+    voice: els.voiceSelect?.value || "default",
+    system_prompt: (els.systemPromptInput?.value || "").trim() || null,
+  };
+}
+
+function applyCompanionConfig(config) {
+  if (!config) return;
+  if (els.avatarSelect && config.avatar_id) els.avatarSelect.value = config.avatar_id;
+  if (els.voiceSelect && config.voice) els.voiceSelect.value = config.voice;
+  if (els.systemPromptInput && config.system_prompt != null) {
+    els.systemPromptInput.value = config.system_prompt;
+  }
+  if (typeof config.turn_count === "number") {
+    state.turnCount = config.turn_count;
+    updateMemoryIndicator();
+  }
+}
+
+async function fetchCompanionConfig(sessionId) {
+  if (!sessionId) return null;
+  try {
+    const res = await fetch(`${API}/companion/${sessionId}/config`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    console.warn("Failed to fetch companion config", e);
+    return null;
+  }
+}
+
+async function patchCompanionConfig(sessionId) {
+  if (!sessionId) return;
+  try {
+    const res = await fetch(`${API}/companion/${sessionId}/config`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(getCompanionConfigPayload()),
+    });
+    if (!res.ok) {
+      console.warn("Companion config PATCH failed", res.status);
+      return;
+    }
+    const data = await res.json();
+    applyCompanionConfig(data);
+  } catch (e) {
+    console.warn("Companion config PATCH error", e);
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForConnectionState(timeoutMs = 12000) {
+  if (state.connected) return true;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (state.connected) return true;
+    if (state.manualDisconnect) return false;
+    if (!state.pc || ["failed", "closed"].includes(state.pc.connectionState)) return false;
+    await sleep(200);
+  }
+  return state.connected;
 }
 
 function setLog(message) {
@@ -144,9 +231,22 @@ function setupSessionBadgeCopy(sessionId) {
   if (badge && badge !== els.sessionLabel) badge.onclick = handler;
 }
 
+const DEFAULT_SYSTEM_BUBBLE =
+  "Connect to start. Badge click copies ID (toggles full view). Use ↻ for active sessions + Resume (works after reload).";
+
 function resetTranscript() {
   els.transcript.innerHTML = "";
-  addBubble("system", "Connect to start. Badge click copies ID (toggles full view). Use ↻ for active sessions + Resume (works after reload).");
+  addBubble("system", DEFAULT_SYSTEM_BUBBLE);
+}
+
+function clearTranscriptKeepSystem() {
+  const systemBubble = els.transcript.querySelector(".bubble.system");
+  els.transcript.innerHTML = "";
+  if (systemBubble) {
+    els.transcript.appendChild(systemBubble);
+  } else {
+    addBubble("system", DEFAULT_SYSTEM_BUBBLE);
+  }
 }
 
 async function waitForIceGathering(pc) {
@@ -223,12 +323,18 @@ async function fetchAndAddServerCandidatesOnce() {
   }
 }
 
-async function connect(resumeSessionId = null) {
-  if (state.connected) return;
+async function connect(resumeSessionId = null, options = {}) {
+  const { autoReconnect = false } = options;
+  if (state.connected || (state.reconnecting && !autoReconnect)) return;
 
   const isResume = !!resumeSessionId;
+  if (!autoReconnect) state.manualDisconnect = false;
   state.connectionMode = isResume ? "resumed" : "new";
-  setStatus(isResume ? "Resuming…" : "Connecting…");
+  setStatus(
+    autoReconnect ? "Reconnecting…" : isResume ? "Resuming…" : "Connecting…",
+    false,
+    autoReconnect
+  );
   setLog(
     isResume
       ? `Resuming session ${resumeSessionId.slice(0, 8)}…`
@@ -276,6 +382,7 @@ async function connect(resumeSessionId = null) {
       els.connectionLabel.textContent = pc.connectionState;
       if (pc.connectionState === "connected") {
         state.connected = true;
+        state.reconnecting = false;
         const statusText = state.connectionMode === "resumed" ? "Resumed" : "Connected";
         setStatus(statusText, true);
         setLog(
@@ -288,7 +395,23 @@ async function connect(resumeSessionId = null) {
           localStorage.setItem("prochar_last_session_id", state.sessionId);
         } catch (_) {}
         if (els.resumeInput) els.resumeInput.value = state.sessionId;
-      } else if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
+        if (els.clearHistoryBtn) els.clearHistoryBtn.disabled = false;
+      } else if (pc.connectionState === "disconnected") {
+        const wasPerforming = state.performing;
+        state.connected = false;
+        stopStatsPolling();
+        if (!state.manualDisconnect && state.sessionId && !state.reconnecting) {
+          attemptAutoReconnect(wasPerforming).catch((err) => {
+            console.error("Auto-reconnect failed", err);
+          });
+        } else {
+          setStatus("Disconnected");
+          if (wasPerforming) {
+            setLog("Connection lost during stream. Last partial response kept.");
+            showToast("Disconnected during stream", true);
+          }
+        }
+      } else if (["failed", "closed"].includes(pc.connectionState)) {
         const wasPerforming = state.performing;
         state.connected = false;
         setStatus("Disconnected");
@@ -353,6 +476,13 @@ async function connect(resumeSessionId = null) {
     els.sendBtn.disabled = false;
     if (els.resumeBtn) els.resumeBtn.disabled = true;
     if (els.sessionsSelect) els.sessionsSelect.disabled = false;
+    if (els.clearHistoryBtn) els.clearHistoryBtn.disabled = false;
+
+    if (isResume) {
+      const config = await fetchCompanionConfig(state.sessionId);
+      if (config) applyCompanionConfig(config);
+    }
+    await patchCompanionConfig(state.sessionId);
 
     if (wasNotFoundOnResume) {
       state.connectionMode = "new";
@@ -372,7 +502,11 @@ async function connect(resumeSessionId = null) {
     console.error(error);
     const msg = error.message || "Connection failed.";
     const isNotFound = /not found|unknown.*session|404/i.test(msg);
-    await disconnect();
+    if (autoReconnect) {
+      teardownConnection({ clearSession: false });
+      throw error;
+    }
+    await teardownConnection({ clearSession: true });
     setStatus(isNotFound ? "Not found" : "Error");
     setLog(msg);
     showToast(msg, true);
@@ -387,19 +521,64 @@ async function connect(resumeSessionId = null) {
   }
 }
 
-async function disconnect() {
+async function attemptAutoReconnect(wasPerforming = false) {
+  const savedSessionId = state.sessionId;
+  if (!savedSessionId || state.manualDisconnect || state.reconnecting) return;
+
+  state.reconnecting = true;
+  setStatus("Reconnecting…", false, true);
+  setLog("Connection dropped — attempting auto-resume…");
+  if (wasPerforming) {
+    showToast("Connection lost — reconnecting…", true);
+  }
+
+  teardownConnection({ clearSession: false });
+
+  for (let attempt = 0; attempt < MAX_RECONNECT_ATTEMPTS; attempt++) {
+    if (state.manualDisconnect) break;
+    if (attempt > 0) {
+      const delay = RECONNECT_DELAYS_MS[attempt - 1] ?? 5000;
+      setLog(`Reconnecting… attempt ${attempt + 1}/${MAX_RECONNECT_ATTEMPTS} (wait ${delay / 1000}s)`);
+      await sleep(delay);
+    } else {
+      setLog(`Reconnecting… attempt 1/${MAX_RECONNECT_ATTEMPTS}`);
+    }
+
+    try {
+      await connect(savedSessionId, { autoReconnect: true });
+      const reconnected = await waitForConnectionState();
+      if (reconnected && state.connected) {
+        state.reconnecting = false;
+        setStatus(state.connectionMode === "resumed" ? "Resumed" : "Connected", true);
+        setLog("Auto-reconnected successfully.");
+        showToast("Reconnected");
+        addBubble("system", "Connection restored.");
+        return;
+      }
+    } catch (e) {
+      console.warn(`Reconnect attempt ${attempt + 1} failed`, e);
+    }
+  }
+
+  state.reconnecting = false;
+  state.sessionId = savedSessionId;
+  setupSessionBadgeCopy(savedSessionId);
+  if (els.resumeInput) els.resumeInput.value = savedSessionId;
+  setStatus("Disconnected");
+  setLog("Auto-reconnect failed after 3 attempts. Use Resume or Connect.");
+  showToast("Could not reconnect — try Resume", true);
+  els.connectBtn.disabled = false;
+  if (els.resumeBtn) els.resumeBtn.disabled = false;
+  if (els.sessionsSelect) els.sessionsSelect.disabled = false;
+}
+
+function teardownConnection({ clearSession = true } = {}) {
   els.disconnectBtn.disabled = true;
   els.sendBtn.disabled = true;
-  els.connectBtn.disabled = false;
+  if (els.clearHistoryBtn && clearSession) els.clearHistoryBtn.disabled = true;
 
   stopStatsPolling();
   stopIceCandidatePolling();
-
-  if (state.sessionId) {
-    // Leave the server session alive so it can be resumed (paste the ID shown in the badge).
-    // Use the DELETE /webrtc/session/{id} explicitly or refresh server to end it.
-    console.debug("Leaving session alive for potential resume:", state.sessionId);
-  }
 
   if (state.pc) {
     state.pc.getSenders().forEach((sender) => sender.track?.stop());
@@ -407,27 +586,68 @@ async function disconnect() {
   }
 
   state.pc = null;
-  state.sessionId = null;
+  if (clearSession) {
+    state.sessionId = null;
+    els.avatarVideo.srcObject = null;
+    els.sessionLabel.textContent = "—";
+    els.sessionLabel.title = "";
+    els.sessionLabel.style.cursor = "";
+    els.sessionLabel.onclick = null;
+    _fullIdVisible = false;
+    state.turnCount = 0;
+    updateMemoryIndicator();
+  }
   state.connected = false;
   state.performing = false;
-  state.connectionMode = "new";
+  if (clearSession) state.connectionMode = "new";
   state.icePollInterval = null;
   state.metrics = { tokens: 0, audio: 0, frames: 0 };
   updateMetrics();
   if (els.webrtcStats) els.webrtcStats.textContent = "WebRTC: —";
+  if (clearSession) {
+    els.connectionLabel.textContent = "idle";
+  }
+}
 
-  els.avatarVideo.srcObject = null;
-  els.sessionLabel.textContent = "—";
-  els.sessionLabel.title = "";
-  els.sessionLabel.style.cursor = "";
-  els.sessionLabel.onclick = null;
-  _fullIdVisible = false;
-  els.connectionLabel.textContent = "idle";
+async function disconnect() {
+  state.manualDisconnect = true;
+  state.reconnecting = false;
+
+  if (state.sessionId) {
+    // Leave the server session alive so it can be resumed (paste the ID shown in the badge).
+    console.debug("Leaving session alive for potential resume:", state.sessionId);
+  }
+
+  teardownConnection({ clearSession: true });
+
+  els.connectBtn.disabled = false;
   setStatus("Idle");
   setLog("Disconnected. (server session may still be resumable)");
   if (els.resumeBtn) els.resumeBtn.disabled = !(els.resumeInput && els.resumeInput.value.trim());
-  if (els.connectBtn) els.connectBtn.disabled = false;
   if (els.sessionsSelect) els.sessionsSelect.disabled = false;
+}
+
+async function clearHistory() {
+  if (!state.sessionId) return;
+  els.clearHistoryBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/companion/${state.sessionId}/history`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error(`Clear history failed (${res.status})`);
+    state.turnCount = 0;
+    updateMemoryIndicator();
+    clearTranscriptKeepSystem();
+    addBubble("system", "Conversation history cleared.");
+    setLog("Server history cleared.");
+    showToast("History cleared");
+  } catch (e) {
+    console.error(e);
+    setLog(e.message || "Could not clear history.");
+    showToast(e.message || "Could not clear history", true);
+  } finally {
+    if (state.connected && els.clearHistoryBtn) els.clearHistoryBtn.disabled = false;
+  }
 }
 
 async function perform(prompt) {
@@ -440,6 +660,8 @@ async function perform(prompt) {
   els.sendBtn.disabled = true;
   setStatus("Streaming…", true);
   addBubble("user", prompt);
+  state.turnCount += 1;
+  updateMemoryIndicator();
 
   const assistantBubble = addBubble("assistant", "");
   const contentEl = assistantBubble.querySelector(".bubble-content") || assistantBubble;
@@ -453,6 +675,7 @@ async function perform(prompt) {
       body: JSON.stringify({
         session_id: state.sessionId,
         messages: [{ role: "user", content: prompt }],
+        use_memory: true,
       }),
     });
 
@@ -715,6 +938,9 @@ if (els.resumeBtn) {
 }
 
 els.disconnectBtn.addEventListener("click", disconnect);
+if (els.clearHistoryBtn) {
+  els.clearHistoryBtn.addEventListener("click", clearHistory);
+}
 els.sendBtn.addEventListener("click", () => {
   const prompt = els.promptInput.value.trim();
   if (!prompt) return;
@@ -731,6 +957,7 @@ els.promptInput.addEventListener("keydown", (event) => {
 
 resetTranscript();
 updateMetrics();
+updateMemoryIndicator();
 wireExamplePrompts();
 
 fetch(`${API}/health`)

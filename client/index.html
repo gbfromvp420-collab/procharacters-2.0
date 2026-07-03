@@ -40,11 +40,42 @@
               <option value="">— sessions —</option>
             </select>
           </div>
+          <div class="companion-config">
+            <div class="config-row">
+              <label class="config-label" for="avatarSelect">Avatar</label>
+              <select id="avatarSelect" class="config-select" title="Avatar style">
+                <option value="default">Default</option>
+                <option value="professional">Professional</option>
+                <option value="casual">Casual</option>
+              </select>
+            </div>
+            <div class="config-row">
+              <label class="config-label" for="voiceSelect">Voice</label>
+              <select id="voiceSelect" class="config-select" title="Voice style">
+                <option value="default">Default</option>
+                <option value="warm">Warm</option>
+                <option value="bright">Bright</option>
+              </select>
+            </div>
+            <details class="config-details">
+              <summary>System prompt (optional)</summary>
+              <textarea
+                id="systemPromptInput"
+                class="config-textarea"
+                placeholder="Custom instructions for your companion…"
+                rows="3"
+              ></textarea>
+            </details>
+          </div>
         </section>
 
         <section class="panel chat-panel">
           <div class="chat-header">
             <strong>Conversation</strong>
+            <div class="chat-header-actions">
+              <span id="memoryIndicator" class="memory-indicator" title="Server-side conversation memory">memory on</span>
+              <button id="clearHistoryBtn" class="btn-ghost" disabled title="Clear server history &amp; transcript">Clear history</button>
+            </div>
           </div>
           <div class="metrics">
             <div class="metric"><span>Tokens</span><strong id="metricTokens">0</strong></div>

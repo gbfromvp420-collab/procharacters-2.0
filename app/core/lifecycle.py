@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import Settings, get_settings
+from app.services.companion.store import SessionCompanionStore
 from app.services.llm.pipeline import LLMStreamPipeline
 from app.services.tts.pipeline import TTSStreamPipeline
 from app.services.video.pipeline import VideoSyncPipeline
@@ -16,12 +17,17 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = get_settings()
-    session_manager = WebRTCSessionManager(settings=settings)
+    companion_store = SessionCompanionStore(settings=settings)
+    session_manager = WebRTCSessionManager(
+        settings=settings,
+        companion_store=companion_store,
+    )
     llm_pipeline = LLMStreamPipeline(settings=settings)
     tts_pipeline = TTSStreamPipeline(settings=settings)
     video_pipeline = VideoSyncPipeline(settings=settings)
 
     app.state.settings = settings
+    app.state.companion_store = companion_store
     app.state.session_manager = session_manager
     app.state.llm_pipeline = llm_pipeline
     app.state.tts_pipeline = tts_pipeline

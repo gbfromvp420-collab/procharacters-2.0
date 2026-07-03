@@ -14,6 +14,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Optional client session for downstream TTS/video sync.",
     )
+    use_memory: bool = Field(
+        default=True,
+        description="When session_id is set, include stored history and persist new turns.",
+    )
     max_tokens: int | None = None
     temperature: float | None = None
 
