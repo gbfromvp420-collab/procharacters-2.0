@@ -16,6 +16,7 @@ class MetricsCollector:
     sessions_created: int = 0
     sessions_closed: int = 0
     companion_turns_saved: int = 0
+    bond_increments: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def increment_perform_requests(self, count: int = 1) -> None:
@@ -42,6 +43,10 @@ class MetricsCollector:
         with self._lock:
             self.companion_turns_saved += count
 
+    def increment_bond_increments(self, count: int = 1) -> None:
+        with self._lock:
+            self.bond_increments += count
+
     def snapshot(self) -> dict[str, int]:
         with self._lock:
             return {
@@ -51,6 +56,7 @@ class MetricsCollector:
                 "sessions_created": self.sessions_created,
                 "sessions_closed": self.sessions_closed,
                 "companion_turns_saved": self.companion_turns_saved,
+                "bond_increments": self.bond_increments,
             }
 
     def metrics_summary(self) -> dict[str, int]:

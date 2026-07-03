@@ -45,6 +45,16 @@ class CompanionConfig(BaseModel):
         default="",
         description="Optional intimacy/personality mode id (e.g. friendly, romantic).",
     )
+    bond_score: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description="Companion affinity score for this session (0-100).",
+    )
+    memory_summary: str = Field(
+        default="",
+        description="Truncated preview of rolling conversation memory summary.",
+    )
     turn_count: int = Field(
         default=0,
         description="Number of completed user/assistant turns in stored history.",
@@ -60,6 +70,7 @@ class CompanionSessionSummary(BaseModel):
     turn_count: int
     last_active_at: str
     avatar_id: str
+    bond_score: int = Field(default=0, ge=0, le=100)
 
 
 class CompanionConfigUpdate(BaseModel):
@@ -76,6 +87,12 @@ class CompanionHeartbeatResponse(BaseModel):
     last_active_at: str
     avatar_id: str
     relationship_mode: str = ""
+    bond_score: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description="Current affinity bond score (0–100).",
+    )
 
 
 class ConversationHistoryResponse(BaseModel):

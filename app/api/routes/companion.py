@@ -132,7 +132,7 @@ async def export_conversation(
     format: str = Query(default="json", pattern="^(json|txt)$"),
 ) -> Response:
     store = _store(request)
-    cfg = store.get_config(session_id)
+    cfg = store.get_config(session_id, memory_preview=False)
     messages = store.get_messages(session_id)
 
     if format == "txt":
@@ -141,6 +141,8 @@ async def export_conversation(
             f"Avatar: {cfg['avatar_id']}",
             f"Voice: {cfg['voice']}",
             f"Relationship mode: {cfg['relationship_mode'] or '(none)'}",
+            f"Bond score: {cfg['bond_score']}",
+            f"Memory summary: {cfg['memory_summary'] or '(none)'}",
             f"Turns: {len(messages) // 2}",
             "",
         ]
@@ -190,6 +192,7 @@ async def companion_heartbeat(
         last_active_at=cfg["last_active_at"],
         avatar_id=cfg["avatar_id"],
         relationship_mode=cfg["relationship_mode"],
+        bond_score=cfg["bond_score"],
     )
 
 

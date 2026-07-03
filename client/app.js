@@ -28,6 +28,10 @@ const state = {
   providerStatusInterval: null,
   bootstrapped: false,
   historyHydratedFor: null,
+  bondScore: 0,
+  sseMode: false,
+  webrtcFailCount: 0,
+  workforceLoaded: false,
 };
 
 let _fullIdVisible = false;
@@ -36,6 +40,7 @@ const els = {
   statusDot: document.getElementById("statusDot"),
   statusText: document.getElementById("statusText"),
   connectBtn: document.getElementById("connectBtn"),
+  sseModeBtn: document.getElementById("sseModeBtn"),
   disconnectBtn: document.getElementById("disconnectBtn"),
   sendBtn: document.getElementById("sendBtn"),
   promptInput: document.getElementById("promptInput"),
@@ -58,6 +63,9 @@ const els = {
   systemPromptInput: document.getElementById("systemPromptInput"),
   clearHistoryBtn: document.getElementById("clearHistoryBtn"),
   memoryIndicator: document.getElementById("memoryIndicator"),
+  bondMeter: document.getElementById("bondMeter"),
+  bondFill: document.getElementById("bondFill"),
+  bondScoreLabel: document.getElementById("bondScoreLabel"),
   avatarGallery: document.getElementById("avatarGallery"),
   promptPresets: document.getElementById("promptPresets"),
   providerStatus: document.getElementById("providerStatus"),
@@ -67,6 +75,8 @@ const els = {
   versionBadge: document.getElementById("versionBadge"),
   serverMetricsPeek: document.getElementById("serverMetricsPeek"),
   refreshMetricsBtn: document.getElementById("refreshMetricsBtn"),
+  workforcePanel: document.getElementById("workforcePanel"),
+  workforceRoster: document.getElementById("workforceRoster"),
 };
 
 const FALLBACK_CATALOG = {
@@ -113,6 +123,129 @@ function updateMemoryIndicator() {
   els.memoryIndicator.title = "Server-side conversation memory is enabled";
 }
 
+function updateBondMeter(score = state.bondScore) {
+  const clamped = Math.max(0, Math.min(100, Number(score) || 0));
+  state.bondScore = clamped;
+  if (els.bondFill) els.bondFill.style.width = `${clamped}%`;
+  if (els.bondScoreLabel) els.bondScoreLabel.textContent = String(clamped);
+  if (els.bondMeter) {
+    els.bondMeter.title = `Affinity bond ${clamped}/100`;
+    els.bondMeter.setAttribute("aria-label", `Bond score ${clamped} out of 100`);
+  }
+}
+
+function canSendPrompt() {
+  return !!state.sessionId && (state.connected || state.sseMode) && !state.performing;
+}
+
+function updateSendButtonState() {
+  if (els.sendBtn) els.sendBtn.disabled = !canSendPrompt();
+}
+
+async function refreshBondScore() {
+  if (!state.sessionId) {
+    updateBondMeter(0);
+    return;
+  }
+  const config = await fetchCompanionConfig(state.sessionId);
+  if (config && typeof config.bond_score === "number") {
+    updateBondMeter(config.bond_score);
+  }
+}
+
+function renderWorkforceRoster(members) {
+  if (!els.workforceRoster) return;
+  if (!Array.isArray(members) || members.length === 0) {
+    els.workforceRoster.textContent = "No team data.";
+    return;
+  }
+  els.workforceRoster.innerHTML = "";
+  members.forEach((member) => {
+    const row = document.createElement("div");
+    row.className = "workforce-member";
+
+    const name = document.createElement("span");
+    name.className = "workforce-member-name";
+    name.textContent = member.codename || member.id;
+
+    const award = document.createElement("span");
+    award.className = "workforce-member-award";
+    const gold = Number(member.award_lb_gold) || 0;
+    award.textContent = `${gold}lb gold`;
+
+    const tier = document.createElement("span");
+    tier.className = "workforce-member-tier";
+    tier.textContent = `${member.tier || "team"} · phase ${member.phase_earned ?? "?"}`;
+
+    const skills = document.createElement("span");
+    skills.className = "workforce-member-skills";
+    skills.textContent = (member.skills || []).join(" · ");
+
+    row.appendChild(name);
+    row.appendChild(award);
+    row.appendChild(tier);
+    row.appendChild(skills);
+    els.workforceRoster.appendChild(row);
+  });
+}
+
+async function loadWorkforceRoster() {
+  if (!els.workforceRoster) return;
+  try {
+    const res = await fetch(`${API}/workforce/roster`);
+    if (!res.ok) throw new Error(`roster ${res.status}`);
+    const data = await res.json();
+    renderWorkforceRoster(data.members || []);
+    state.workforceLoaded = true;
+  } catch (e) {
+    console.warn("Workforce roster fetch failed", e);
+    els.workforceRoster.textContent = "Workforce roster unavailable.";
+  }
+}
+
+async function enterSseMode(reason = "manual") {
+  if (state.connected) {
+    showToast("Disconnect WebRTC first to use SSE mode", true);
+    return;
+  }
+  if (state.performing) return;
+
+  state.sseMode = true;
+  state.manualDisconnect = false;
+  state.connectionMode = "new";
+
+  if (!state.sessionId) {
+    state.sessionId = crypto.randomUUID();
+    setupSessionBadgeCopy(state.sessionId);
+  }
+
+  els.connectionLabel.textContent = "sse";
+  els.disconnectBtn.disabled = false;
+  if (els.clearHistoryBtn) els.clearHistoryBtn.disabled = false;
+  if (els.exportBtn) els.exportBtn.disabled = false;
+  if (els.connectBtn) els.connectBtn.disabled = false;
+  updateSendButtonState();
+
+  await patchCompanionConfig(state.sessionId);
+  const config = await fetchCompanionConfig(state.sessionId);
+  if (config) applyCompanionConfig(config);
+  startHeartbeat();
+
+  const toastMsg =
+    reason === "auto"
+      ? "WebRTC failed twice — SSE mode (video unavailable, tokens in transcript only)"
+      : "SSE mode — video unavailable, tokens stream to transcript only";
+  showToast(toastMsg);
+  setStatus("SSE mode", true);
+  setLog(toastMsg);
+  addBubble("system", "SSE mode active. Chat works without WebRTC — video and audio playback unavailable.");
+
+  try {
+    localStorage.setItem("prochar_last_session_id", state.sessionId);
+  } catch (_) {}
+  if (els.resumeInput) els.resumeInput.value = state.sessionId;
+}
+
 function getCompanionConfigPayload() {
   return {
     avatar_id: els.avatarSelect?.value || "default",
@@ -134,6 +267,9 @@ function applyCompanionConfig(config) {
   if (typeof config.turn_count === "number") {
     state.turnCount = config.turn_count;
     updateMemoryIndicator();
+  }
+  if (typeof config.bond_score === "number") {
+    updateBondMeter(config.bond_score);
   }
 }
 
@@ -586,9 +722,17 @@ function stopServerMetricsPolling() {
 }
 
 async function sendHeartbeat() {
-  if (!state.connected || !state.sessionId) return;
+  if (!state.sessionId || (!state.connected && !state.sseMode)) return;
   try {
-    await fetch(`${API}/companion/${state.sessionId}/heartbeat`, { method: "POST" });
+    const res = await fetch(`${API}/companion/${state.sessionId}/heartbeat`, { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.bond_score === "number") updateBondMeter(data.bond_score);
+      if (typeof data.turn_count === "number") {
+        state.turnCount = data.turn_count;
+        updateMemoryIndicator();
+      }
+    }
   } catch (e) {
     console.warn("Heartbeat failed", e);
   }
@@ -596,7 +740,7 @@ async function sendHeartbeat() {
 
 function startHeartbeat() {
   stopHeartbeat();
-  if (!state.connected || !state.sessionId) return;
+  if (!state.sessionId || (!state.connected && !state.sseMode)) return;
   sendHeartbeat().catch(() => {});
   state.heartbeatInterval = setInterval(() => {
     sendHeartbeat().catch(() => {});
@@ -825,6 +969,7 @@ async function connect(resumeSessionId = null, options = {}) {
 
   const isResume = !!resumeSessionId;
   if (!autoReconnect) state.manualDisconnect = false;
+  state.sseMode = false;
   state.connectionMode = isResume ? "resumed" : "new";
   if (autoResumeOnLoad) {
     showToast("Restoring session…");
@@ -882,6 +1027,8 @@ async function connect(resumeSessionId = null, options = {}) {
       if (pc.connectionState === "connected") {
         state.connected = true;
         state.reconnecting = false;
+        state.webrtcFailCount = 0;
+        state.sseMode = false;
         const statusText = state.connectionMode === "resumed" ? "Resumed" : "Connected";
         setStatus(statusText, true);
         setLog(
@@ -1013,6 +1160,11 @@ async function connect(resumeSessionId = null, options = {}) {
       throw error;
     }
     await teardownConnection({ clearSession: true });
+    state.webrtcFailCount += 1;
+    if (state.webrtcFailCount >= 2) {
+      await enterSseMode("auto");
+      return;
+    }
     setStatus(isNotFound ? "Not found" : "Error");
     setLog(msg);
     showToast(msg, true);
@@ -1104,7 +1256,10 @@ function teardownConnection({ clearSession = true } = {}) {
     _fullIdVisible = false;
     state.turnCount = 0;
     state.historyHydratedFor = null;
+    state.sseMode = false;
+    state.bondScore = 0;
     updateMemoryIndicator();
+    updateBondMeter(0);
   }
   state.connected = false;
   state.performing = false;
@@ -1121,6 +1276,8 @@ function teardownConnection({ clearSession = true } = {}) {
 async function disconnect() {
   state.manualDisconnect = true;
   state.reconnecting = false;
+  state.sseMode = false;
+  state.webrtcFailCount = 0;
 
   if (state.sessionId) {
     // Leave the server session alive so it can be resumed (paste the ID shown in the badge).
@@ -1146,6 +1303,7 @@ async function clearHistory() {
     if (!res.ok) throw new Error(`Clear history failed (${res.status})`);
     state.turnCount = 0;
     updateMemoryIndicator();
+    updateBondMeter(0);
     clearTranscriptKeepSystem();
     addBubble("system", "Conversation history cleared.");
     setLog("Server history cleared.");
@@ -1155,7 +1313,7 @@ async function clearHistory() {
     setLog(e.message || "Could not clear history.");
     showToast(e.message || "Could not clear history", true);
   } finally {
-    if (state.connected && els.clearHistoryBtn) els.clearHistoryBtn.disabled = false;
+    if ((state.connected || state.sseMode) && els.clearHistoryBtn) els.clearHistoryBtn.disabled = false;
   }
 }
 
@@ -1241,7 +1399,12 @@ async function perform(prompt) {
           if (ind) ind.remove();
           // briefly show ended state then back to normal
           setTimeout(() => {
-            if (state.connected && !state.performing) setStatus(state.connectionMode === "resumed" ? "Resumed" : "Connected", true);
+            if (state.performing) return;
+            if (state.connected) {
+              setStatus(state.connectionMode === "resumed" ? "Resumed" : "Connected", true);
+            } else if (state.sseMode) {
+              setStatus("SSE mode", true);
+            }
           }, 1600);
         }
         updateMetrics();
@@ -1272,9 +1435,14 @@ async function perform(prompt) {
     }
   } finally {
     state.performing = false;
-    if (state.connected) {
-      els.sendBtn.disabled = false;
-      if (!hadError) setStatus(state.connectionMode === "resumed" ? "Resumed" : "Connected", true);
+    await refreshBondScore();
+    updateSendButtonState();
+    if (!hadError) {
+      if (state.connected) {
+        setStatus(state.connectionMode === "resumed" ? "Resumed" : "Connected", true);
+      } else if (state.sseMode) {
+        setStatus("SSE mode", true);
+      }
     }
   }
 }
@@ -1340,19 +1508,26 @@ function wireExamplePrompts() {
     btn.addEventListener("click", () => {
       const p = btn.getAttribute("data-prompt") || btn.textContent;
       if (!p) return;
-      if (state.connected && !state.performing) {
-        // send directly
+      if (canSendPrompt()) {
         perform(p);
       } else {
         els.promptInput.value = p;
         els.promptInput.focus();
-        setLog("Connect or resume first, then send (or click example again after).");
+        setLog("Connect, resume, or use SSE mode first, then send (or click example again after).");
       }
     });
   });
 }
 
 els.connectBtn.addEventListener("click", () => connect());
+if (els.sseModeBtn) {
+  els.sseModeBtn.addEventListener("click", () => enterSseMode("manual"));
+}
+if (els.workforcePanel) {
+  els.workforcePanel.addEventListener("toggle", () => {
+    if (els.workforcePanel.open) loadWorkforceRoster().catch(() => {});
+  });
+}
 
 async function fetchActiveSessions() {
   const res = await fetch(`${API}/webrtc/sessions`);
@@ -1535,6 +1710,8 @@ els.promptInput.addEventListener("keydown", (event) => {
 resetTranscript();
 updateMetrics();
 updateMemoryIndicator();
+updateBondMeter(0);
+updateSendButtonState();
 wireExamplePrompts();
 
 if (els.voiceSelect) {

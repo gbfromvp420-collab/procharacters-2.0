@@ -5,7 +5,14 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from app.api.sse import format_sse
-from app.models.llm import ChatMessage, ChatRequest, StreamDoneEvent, StreamErrorEvent, StreamTokenEvent
+from app.models.llm import (
+    ChatMessage,
+    ChatModesResponse,
+    ChatRequest,
+    StreamDoneEvent,
+    StreamErrorEvent,
+    StreamTokenEvent,
+)
 from app.models.tts import TTSErrorEvent
 from app.models.video import VideoSyncErrorEvent
 from app.services.companion.store import SessionCompanionStore
@@ -25,6 +32,23 @@ def _last_user_message(messages: list[ChatMessage]) -> ChatMessage | None:
         if msg.role == "user":
             return msg
     return None
+
+
+def _sse_resilience_headers(
+    session_id: str | None,
+    *,
+    session_manager,
+    companion_store: SessionCompanionStore,
+) -> dict[str, str]:
+    """Headers for SSE clients to detect WebRTC bond and stored companion memory."""
+    if not session_id:
+        return {}
+    bonded = session_manager.get_session(session_id) is not None
+    has_memory = len(companion_store.get_messages(session_id)) > 0
+    return {
+        "X-Session-Bond": "true" if bonded else "false",
+        "X-Memory-Summary-Present": "true" if has_memory else "false",
+    }
 
 
 def _resolve_chat_context(
@@ -171,6 +195,15 @@ async def _perform_event_stream(
         yield format_sse(VideoSyncErrorEvent(message=str(exc)))
 
 
+@router.get(
+    "/modes",
+    response_model=ChatModesResponse,
+    summary="Report available chat transport modes (WebRTC + SSE fallbacks)",
+)
+async def chat_modes() -> ChatModesResponse:
+    return ChatModesResponse(webrtc=True, sse_perform=True, sse_speak=True)
+
+
 @router.post(
     "/perform",
     summary="Full companion pipeline: LLM + TTS + MuseTalk (SSE; feeds WebRTC when session_id is set)",
@@ -200,6 +233,25 @@ async def perform(request: Request, payload: ChatRequest) -> StreamingResponse:
         session_voice = cfg["voice"]
         session_avatar = cfg["avatar_id"]
 
+    perform_headers: dict[str, str] = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-LLM-Provider": llm_pipeline.provider,
+        "X-LLM-Model": llm_pipeline.model,
+        "X-TTS-Provider": tts_pipeline.provider,
+        "X-TTS-Voice": session_voice or tts_pipeline.voice,
+        "X-Video-Provider": video_pipeline.provider,
+        "X-Video-Avatar": session_avatar or video_pipeline.avatar_id,
+        "X-Video-FPS": str(video_pipeline.fps),
+    }
+    perform_headers.update(
+        _sse_resilience_headers(
+            payload.session_id,
+            session_manager=session_manager,
+            companion_store=companion_store,
+        )
+    )
+
     return StreamingResponse(
         _perform_event_stream(
             llm_pipeline,
@@ -211,17 +263,7 @@ async def perform(request: Request, payload: ChatRequest) -> StreamingResponse:
             metrics=metrics,
         ),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-LLM-Provider": llm_pipeline.provider,
-            "X-LLM-Model": llm_pipeline.model,
-            "X-TTS-Provider": tts_pipeline.provider,
-            "X-TTS-Voice": session_voice or tts_pipeline.voice,
-            "X-Video-Provider": video_pipeline.provider,
-            "X-Video-Avatar": session_avatar or video_pipeline.avatar_id,
-            "X-Video-FPS": str(video_pipeline.fps),
-        },
+        headers=perform_headers,
     )
 
 

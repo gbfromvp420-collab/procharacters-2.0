@@ -8,6 +8,12 @@ class ChatMessage(BaseModel):
     content: str
 
 
+class ChatModesResponse(BaseModel):
+    webrtc: bool = True
+    sse_perform: bool = True
+    sse_speak: bool = True
+
+
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(..., min_length=1)
     session_id: str | None = Field(

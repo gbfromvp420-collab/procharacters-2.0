@@ -1,6 +1,7 @@
 import logging
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from aiortc import RTCIceCandidate, RTCPeerConnection, RTCSessionDescription
 from aiortc.sdp import candidate_from_sdp
@@ -12,11 +13,16 @@ from app.services.webrtc.media_bridge import AvatarMediaBridge
 logger = logging.getLogger(__name__)
 
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
 @dataclass
 class WebRTCSession:
     session_id: str
     peer_connection: RTCPeerConnection
     media_bridge: AvatarMediaBridge
+    created_at: str = ""
     pending_ice_candidates: list[dict[str, str | int | None]] = field(
         default_factory=list
     )
@@ -47,7 +53,20 @@ class WebRTCSessionManager:
 
     @property
     def ice_servers(self) -> list[dict[str, str | list[str]]]:
-        return self._settings.webrtc_ice_servers
+        """STUN from settings plus optional TURN when URLs and credentials are configured."""
+        servers = list(self._settings.webrtc_ice_servers)
+        turn_urls = self._settings.webrtc_turn_urls
+        turn_user = self._settings.webrtc_turn_username.strip()
+        turn_cred = self._settings.webrtc_turn_credential.strip()
+        if turn_urls and turn_user and turn_cred:
+            servers.append(
+                {
+                    "urls": turn_urls,
+                    "username": turn_user,
+                    "credential": turn_cred,
+                }
+            )
+        return servers
 
     @property
     def active_session_count(self) -> int:
@@ -82,6 +101,7 @@ class WebRTCSessionManager:
             out.append(
                 {
                     "session_id": sid,
+                    "created_at": sess.created_at,
                     "connection_state": sess.connection_state,
                     "ice_connection_state": sess.ice_connection_state,
                     "ice_gathering_state": sess.ice_gathering_state,
@@ -97,6 +117,7 @@ class WebRTCSessionManager:
             session_id=session_id,
             peer_connection=peer_connection,
             media_bridge=media_bridge,
+            created_at=_utc_now_iso(),
         )
         self._sessions[session_id] = session
         self._register_peer_handlers(session)

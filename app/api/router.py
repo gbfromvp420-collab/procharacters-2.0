@@ -1,10 +1,22 @@
 from fastapi import APIRouter
 
-from app.api.routes import chat, companion, health, llm, metrics, providers, tts, video, webrtc
+from app.api.routes import (
+    chat,
+    companion,
+    health,
+    llm,
+    metrics,
+    providers,
+    tts,
+    video,
+    webrtc,
+    workforce,
+)
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(metrics.router)
+api_router.include_router(workforce.router)
 api_router.include_router(providers.router)
 api_router.include_router(llm.router)
 api_router.include_router(tts.router)

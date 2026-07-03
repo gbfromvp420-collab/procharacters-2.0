@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "ProCharacters Cloud"
-    app_version: str = "0.3.0"
+    app_version: str = "0.4.0"
     debug: bool = False
 
     host: str = "0.0.0.0"
@@ -20,10 +20,13 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["*"]
 
-    # WebRTC / signaling
+    # WebRTC / signaling (STUN defaults; optional TURN when credentials are set)
     webrtc_ice_servers: list[dict[str, str | list[str]]] = [
         {"urls": "stun:stun.l.google.com:19302"},
     ]
+    webrtc_turn_urls: list[str] = []
+    webrtc_turn_username: str = ""
+    webrtc_turn_credential: str = ""
 
     # LLM (RunPod / vLLM OpenAI-compatible API)
     # Use "mock" for local; "openai_compatible" for real /v1/chat/completions
@@ -87,6 +90,9 @@ class Settings(BaseSettings):
         "romantic",
         "deep",
     ]
+    companion_summarize_enabled: bool = True
+    companion_summarize_after_turns: int = 12
+    companion_memory_summary_preview_max: int = 120
 
     # Optional API key auth for /api/v1/* (GET /health and GET /metrics exempt)
     api_key_enabled: bool = False
