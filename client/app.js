@@ -35,6 +35,9 @@ const state = {
   milestones: [],
   milestonesLoaded: false,
   kgcDashboardInterval: null,
+  presenceConfig: null,
+  micListening: false,
+  speechRecognition: null,
 };
 
 let _fullIdVisible = false;
@@ -93,6 +96,17 @@ const els = {
   sovereignAuditLog: document.getElementById("sovereignAuditLog"),
   ceoCrownBadge: document.getElementById("ceoCrownBadge"),
   milestoneChips: document.getElementById("milestoneChips"),
+  videoShell: document.getElementById("videoShell"),
+  presenceShimmer: document.getElementById("presenceShimmer"),
+  presenceTierLabel: document.getElementById("presenceTierLabel"),
+  presenceTierBadge: document.getElementById("presenceTierBadge"),
+  micBtn: document.getElementById("micBtn"),
+  milestoneOverlay: document.getElementById("milestoneOverlay"),
+  milestoneOverlayTitle: document.getElementById("milestoneOverlayTitle"),
+  milestoneOverlayDesc: document.getElementById("milestoneOverlayDesc"),
+  milestoneOverlayBond: document.getElementById("milestoneOverlayBond"),
+  milestoneOverlayDismiss: document.getElementById("milestoneOverlayDismiss"),
+  milestoneParticles: document.getElementById("milestoneParticles"),
 };
 
 const FALLBACK_CATALOG = {
@@ -149,6 +163,225 @@ function updateBondMeter(score = state.bondScore) {
     els.bondMeter.setAttribute("aria-label", `Bond score ${clamped} out of 100`);
   }
   renderMilestoneChips();
+  updatePresenceAura(clamped);
+}
+
+const FALLBACK_PRESENCE_TIERS = [
+  { id: "spark", label: "Spark", min_bond: 0, aura_color: "#6c8cff", glow_intensity: 0.35 },
+  { id: "warmth", label: "Warmth", min_bond: 25, aura_color: "#ff8fa3", glow_intensity: 0.5 },
+  { id: "trust", label: "Trusted", min_bond: 50, aura_color: "#ffd878", glow_intensity: 0.62 },
+  { id: "depth", label: "Deep Bond", min_bond: 75, aura_color: "#c77dff", glow_intensity: 0.78 },
+  { id: "inseparable", label: "Inseparable", min_bond: 100, aura_color: "#ffe566", glow_intensity: 1 },
+];
+
+function getPresenceTiers() {
+  const tiers = state.presenceConfig?.bond_tiers;
+  return Array.isArray(tiers) && tiers.length ? tiers : FALLBACK_PRESENCE_TIERS;
+}
+
+function resolvePresenceTier(bondScore = state.bondScore) {
+  const score = Math.max(0, Math.min(100, Number(bondScore) || 0));
+  const tiers = getPresenceTiers();
+  let tier = tiers[0];
+  tiers.forEach((candidate) => {
+    if (score >= Number(candidate.min_bond ?? 0)) tier = candidate;
+  });
+  return tier;
+}
+
+function getAvatarAccent() {
+  const avatarId = state.selectedAvatarId || els.avatarSelect?.value || "default";
+  const avatars = state.catalog?.avatars || FALLBACK_CATALOG.avatars;
+  const avatar = avatars.find((item) => item.id === avatarId);
+  return avatar?.accent_color || "#6c8cff";
+}
+
+function updatePresenceAura(bondScore = state.bondScore) {
+  if (!els.videoShell) return;
+  const tier = resolvePresenceTier(bondScore);
+  const tierId = tier.id || "spark";
+  const accent = tier.aura_color || getAvatarAccent();
+  const glow = Number(tier.glow_intensity ?? 0.35);
+
+  els.videoShell.dataset.presenceTier = tierId;
+  els.videoShell.classList.remove(
+    "presence-tier-spark",
+    "presence-tier-warmth",
+    "presence-tier-trust",
+    "presence-tier-depth",
+    "presence-tier-inseparable"
+  );
+  els.videoShell.classList.add(`presence-tier-${tierId}`);
+  els.videoShell.style.setProperty("--presence-accent", accent);
+  els.videoShell.style.setProperty("--presence-glow", String(glow));
+
+  if (els.presenceTierLabel) els.presenceTierLabel.textContent = tier.label || tierId;
+  if (els.presenceTierBadge) {
+    els.presenceTierBadge.title = `Bond presence tier: ${tier.label || tierId}`;
+  }
+}
+
+function setPresenceLive(active) {
+  if (!els.videoShell) return;
+  els.videoShell.classList.toggle("presence-live", !!active);
+  if (!active) {
+    els.videoShell.classList.remove("presence-performing", "presence-celebrating");
+  }
+}
+
+function setPerformingPresence(active) {
+  if (!els.videoShell) return;
+  els.videoShell.classList.toggle("presence-performing", !!active);
+}
+
+function spawnMilestoneParticles() {
+  if (!els.milestoneParticles) return;
+  els.milestoneParticles.innerHTML = "";
+  const colors = ["#ffd878", "#ff8fa3", "#6c8cff", "#c77dff", "#ffe566"];
+  for (let i = 0; i < 28; i += 1) {
+    const particle = document.createElement("span");
+    particle.className = "milestone-particle";
+    const angle = (Math.PI * 2 * i) / 28;
+    const distance = 60 + Math.random() * 90;
+    particle.style.left = "50%";
+    particle.style.top = "38%";
+    particle.style.background = colors[i % colors.length];
+    particle.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
+    particle.style.setProperty("--dy", `${Math.sin(angle) * distance}px`);
+    particle.style.animationDelay = `${Math.random() * 0.25}s`;
+    els.milestoneParticles.appendChild(particle);
+  }
+}
+
+function dismissMilestoneOverlay() {
+  if (!els.milestoneOverlay) return;
+  els.videoShell?.classList.remove("presence-celebrating");
+  els.milestoneOverlay.classList.add("hidden");
+}
+
+function showMilestoneCelebration(event = {}) {
+  const milestoneLabel =
+    event.label || event.milestone || event.milestone_id || "Bond milestone";
+  const bondScore = typeof event.bond_score === "number" ? event.bond_score : state.bondScore;
+  const milestoneId = event.milestone_id || event.id || "";
+  const milestoneMeta = state.milestones.find((item) => item.id === milestoneId);
+  const description =
+    event.description ||
+    milestoneMeta?.description ||
+    "Your connection has grown — the companion will respond with warmer presence.";
+
+  if (typeof event.bond_score === "number") updateBondMeter(event.bond_score);
+  pulseBondMeter();
+
+  const celebrationsEnabled = state.presenceConfig?.celebration_enabled !== false;
+  if (!celebrationsEnabled || !els.milestoneOverlay) {
+    showToast(`Milestone unlocked: ${milestoneLabel}`);
+    return;
+  }
+
+  if (els.milestoneOverlayTitle) els.milestoneOverlayTitle.textContent = milestoneLabel;
+  if (els.milestoneOverlayDesc) els.milestoneOverlayDesc.textContent = description;
+  if (els.milestoneOverlayBond) els.milestoneOverlayBond.textContent = `Bond ${bondScore}`;
+  spawnMilestoneParticles();
+  els.milestoneOverlay.classList.remove("hidden");
+  els.videoShell?.classList.add("presence-celebrating");
+  setLog(`Bond milestone — ${milestoneLabel}`);
+  showToast(`✨ ${milestoneLabel}`);
+}
+
+async function loadPresenceConfig() {
+  try {
+    const res = await fetch(`${API}/companion/presence`);
+    if (!res.ok) throw new Error(`presence ${res.status}`);
+    state.presenceConfig = await res.json();
+    updatePresenceAura(state.bondScore);
+  } catch (e) {
+    console.warn("Presence config fetch failed", e);
+    state.presenceConfig = {
+      celebration_enabled: true,
+      voice_input_enabled: true,
+      bond_tiers: FALLBACK_PRESENCE_TIERS,
+    };
+  }
+}
+
+function initVoiceInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    if (els.micBtn) {
+      els.micBtn.title = "Voice input unavailable in this browser";
+      els.micBtn.disabled = true;
+    }
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = navigator.language || "en-US";
+
+  recognition.onstart = () => {
+    state.micListening = true;
+    els.micBtn?.classList.add("listening");
+    setLog("Listening… speak now.");
+  };
+
+  recognition.onend = () => {
+    state.micListening = false;
+    els.micBtn?.classList.remove("listening");
+  };
+
+  recognition.onerror = (event) => {
+    state.micListening = false;
+    els.micBtn?.classList.remove("listening");
+    const msg = event.error === "not-allowed" ? "Microphone permission denied" : "Voice input failed";
+    showToast(msg, true);
+    setLog(msg);
+  };
+
+  recognition.onresult = (event) => {
+    let transcript = "";
+    for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      transcript += event.results[i][0].transcript;
+    }
+    if (!transcript.trim()) return;
+    if (els.promptInput) {
+      const existing = els.promptInput.value.trim();
+      els.promptInput.value = existing ? `${existing} ${transcript.trim()}` : transcript.trim();
+    }
+    setLog(`Voice captured: "${transcript.trim().slice(0, 48)}${transcript.length > 48 ? "…" : ""}"`);
+    if (event.results[event.results.length - 1]?.isFinal) {
+      const finalText = els.promptInput?.value.trim();
+      if (finalText && canSendPrompt()) {
+        els.promptInput.value = "";
+        perform(finalText);
+      }
+    }
+  };
+
+  state.speechRecognition = recognition;
+
+  if (els.micBtn) {
+    els.micBtn.addEventListener("click", () => {
+      if (!canSendPrompt()) {
+        showToast("Connect first to use voice input", true);
+        return;
+      }
+      if (state.presenceConfig?.voice_input_enabled === false) {
+        showToast("Voice input disabled by server policy", true);
+        return;
+      }
+      if (state.micListening) {
+        recognition.stop();
+        return;
+      }
+      try {
+        recognition.start();
+      } catch (e) {
+        showToast("Could not start voice input", true);
+      }
+    });
+  }
 }
 
 function pulseBondMeter() {
@@ -248,7 +481,14 @@ function canSendPrompt() {
 }
 
 function updateSendButtonState() {
-  if (els.sendBtn) els.sendBtn.disabled = !canSendPrompt();
+  const canSend = canSendPrompt();
+  if (els.sendBtn) els.sendBtn.disabled = !canSend;
+  if (els.micBtn) {
+    const voiceEnabled =
+      state.presenceConfig?.voice_input_enabled !== false &&
+      !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    els.micBtn.disabled = !canSend || !voiceEnabled;
+  }
 }
 
 async function refreshBondScore() {
@@ -336,6 +576,7 @@ async function enterSseMode(reason = "manual") {
   if (els.connectBtn) els.connectBtn.disabled = false;
   updateSendButtonState();
   updateSovereignControls();
+  setPresenceLive(true);
 
   await patchCompanionConfig(state.sessionId);
   const config = await fetchCompanionConfig(state.sessionId);
@@ -398,6 +639,7 @@ function selectAvatar(avatarId, options = {}) {
         const accent = card.dataset.accentColor || "#6c8cff";
         card.style.borderColor = accent;
         card.style.boxShadow = `0 0 0 1px ${accent}55`;
+        updatePresenceAura(state.bondScore);
       } else {
         card.style.borderColor = "";
         card.style.boxShadow = "";
@@ -1576,9 +1818,12 @@ async function connect(resumeSessionId = null, options = {}) {
         if (els.clearHistoryBtn) els.clearHistoryBtn.disabled = false;
         if (els.exportBtn) els.exportBtn.disabled = false;
         updateSovereignControls();
+        setPresenceLive(true);
+        updateSendButtonState();
       } else if (pc.connectionState === "disconnected") {
         const wasPerforming = state.performing;
         state.connected = false;
+        setPresenceLive(false);
         stopStatsPolling();
         stopHeartbeat();
         if (!state.manualDisconnect && state.sessionId && !state.reconnecting) {
@@ -1803,7 +2048,10 @@ function teardownConnection({ clearSession = true } = {}) {
   if (clearSession) {
     els.connectionLabel.textContent = "idle";
   }
+  setPresenceLive(false);
+  setPerformingPresence(false);
   updateSovereignControls();
+  updateSendButtonState();
 }
 
 async function disconnect() {
@@ -1811,6 +2059,12 @@ async function disconnect() {
   state.reconnecting = false;
   state.sseMode = false;
   state.webrtcFailCount = 0;
+  if (state.micListening && state.speechRecognition) {
+    try {
+      state.speechRecognition.stop();
+    } catch (_) {}
+  }
+  dismissMilestoneOverlay();
 
   if (state.sessionId) {
     // Leave the server session alive so it can be resumed (paste the ID shown in the badge).
@@ -1858,6 +2112,7 @@ async function perform(prompt) {
   state.metrics = { tokens: 0, audio: 0, frames: 0 };
   updateMetrics();
   els.sendBtn.disabled = true;
+  setPerformingPresence(true);
   setStatus("Streaming…", true);
   addBubble("user", prompt);
   state.turnCount += 1;
@@ -1918,12 +2173,7 @@ async function perform(prompt) {
         } else if (event.type === "video_frame") {
           state.metrics.frames += 1;
         } else if (event.type === "bond_milestone") {
-          const milestoneLabel =
-            event.label || event.milestone || event.milestone_id || "Bond milestone";
-          if (typeof event.bond_score === "number") updateBondMeter(event.bond_score);
-          pulseBondMeter();
-          showToast(`Milestone unlocked: ${milestoneLabel}`);
-          setLog(`Bond milestone — ${milestoneLabel}`);
+          showMilestoneCelebration(event);
         } else if (event.type === "error" || event.type === "tts_error" || event.type === "video_error") {
           hadError = true;
           setLog(event.message || "Stream error");
@@ -1975,6 +2225,7 @@ async function perform(prompt) {
     }
   } finally {
     state.performing = false;
+    setPerformingPresence(false);
     await refreshBondScore();
     updateSendButtonState();
     if (!hadError) {
@@ -2288,6 +2539,19 @@ els.promptInput.addEventListener("keydown", (event) => {
   }
 });
 
+if (els.milestoneOverlayDismiss) {
+  els.milestoneOverlayDismiss.addEventListener("click", dismissMilestoneOverlay);
+}
+if (els.milestoneOverlay) {
+  els.milestoneOverlay.addEventListener("click", (event) => {
+    if (event.target === els.milestoneOverlay || event.target.classList.contains("milestone-overlay-backdrop")) {
+      dismissMilestoneOverlay();
+    }
+  });
+}
+
+initVoiceInput();
+
 resetTranscript();
 updateMetrics();
 updateMemoryIndicator();
@@ -2330,7 +2594,11 @@ async function bootstrap() {
   }
 
   startServerMetricsPolling();
-  await Promise.all([refreshActiveSessions(), loadMilestones().catch(() => {})]);
+  await Promise.all([
+    refreshActiveSessions(),
+    loadMilestones().catch(() => {}),
+    loadPresenceConfig(),
+  ]);
 
   const resumed = await attemptAutoResumeOnLoad();
   if (!resumed) {

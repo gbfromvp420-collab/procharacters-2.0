@@ -113,6 +113,21 @@ class BondMilestonesCatalogResponse(BaseModel):
     milestones: list[BondMilestoneInfo]
 
 
+class PresenceBondTier(BaseModel):
+    id: str
+    label: str
+    min_bond: int = Field(ge=0, le=100)
+    aura_color: str
+    glow_intensity: float = Field(ge=0.0, le=1.0)
+
+
+class PresenceConfigResponse(BaseModel):
+    celebration_enabled: bool = True
+    voice_input_enabled: bool = True
+    voice_input_hint: str = ""
+    bond_tiers: list[PresenceBondTier] = Field(default_factory=list)
+
+
 class BondMilestoneEvent(BaseModel):
     type: str = "bond_milestone"
     milestone_id: str

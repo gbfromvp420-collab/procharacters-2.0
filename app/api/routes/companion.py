@@ -16,8 +16,10 @@ from app.models.companion import (
     ConversationHistoryResponse,
     ImportSessionRequest,
     ImportSessionResponse,
+    PresenceConfigResponse,
 )
 from app.services.companion.milestones import BOND_MILESTONES
+from app.services.companion.presence import get_presence_config
 from app.services.companion.catalog import (
     get_avatar_catalog,
     get_prompt_presets,
@@ -56,6 +58,15 @@ async def get_companion_catalog(request: Request) -> CompanionCatalogResponse:
 async def list_companion_sessions(request: Request) -> list[CompanionSessionSummary]:
     store = _store(request)
     return [CompanionSessionSummary(**item) for item in store.list_persisted_sessions()]
+
+
+@router.get(
+    "/presence",
+    response_model=PresenceConfigResponse,
+    summary="Presence theater config — bond-tier auras and voice/celebration hints",
+)
+async def get_presence_config_route() -> PresenceConfigResponse:
+    return PresenceConfigResponse(**get_presence_config())
 
 
 @router.get(

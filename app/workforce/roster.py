@@ -22,9 +22,10 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
             "SyncOrchestrator_Core",
             "KGC_Command_Authority",
             "Sovereign_Empire_Authority",
+            "Presence_Theater_Authority",
         ],
         "tier": "ceo",
-        "phase_earned": 8,
+        "phase_earned": 9,
         "award_lb_gold": 10.0,
     },
     {
@@ -129,6 +130,14 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
         "skills": ["FleetBackup_AuditLog"],
         "tier": "team",
         "phase_earned": 8,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "presencetheater-client-sub-01",
+        "codename": "PresenceTheater_Client_Sub_01",
+        "skills": ["BondAura_VoiceCelebration"],
+        "tier": "team",
+        "phase_earned": 9,
         "award_lb_gold": 1.0,
     },
 ]

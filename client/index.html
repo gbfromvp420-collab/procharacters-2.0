@@ -38,11 +38,14 @@
 
       <main class="layout">
         <section class="panel">
-          <div class="video-shell">
+          <div id="videoShell" class="video-shell presence-tier-spark" data-presence-tier="spark">
+            <div class="presence-aura" aria-hidden="true"></div>
             <video id="avatarVideo" autoplay playsinline muted></video>
+            <div id="presenceShimmer" class="presence-shimmer" aria-hidden="true"></div>
             <div class="video-overlay">
               <span class="video-badge" id="sessionBadge" title="Click to copy / toggle full ID">Session <span id="sessionLabel">—</span></span>
               <span class="video-badge">ICE <span id="connectionLabel">idle</span></span>
+              <span id="presenceTierBadge" class="video-badge presence-tier-badge" title="Bond presence tier">Aura <span id="presenceTierLabel">Spark</span></span>
             </div>
           </div>
           <div class="controls">
@@ -124,11 +127,25 @@
             <button type="button" class="ex-btn" data-prompt="Describe what you see.">Describe</button>
           </div>
           <div class="composer">
-            <textarea
-              id="promptInput"
-              placeholder="Say something to your companion…"
-            ></textarea>
-            <button id="sendBtn" class="btn-secondary" disabled>Send</button>
+            <div class="composer-row">
+              <textarea
+                id="promptInput"
+                placeholder="Say something to your companion…"
+              ></textarea>
+              <div class="composer-actions">
+                <button
+                  id="micBtn"
+                  class="btn-mic"
+                  type="button"
+                  disabled
+                  title="Speak to your companion (browser speech recognition)"
+                  aria-label="Voice input"
+                >
+                  <span class="mic-icon" aria-hidden="true">🎙</span>
+                </button>
+                <button id="sendBtn" class="btn-secondary" disabled>Send</button>
+              </div>
+            </div>
           </div>
           <div class="log-footer">
             <div id="log" class="log"></div>
@@ -179,6 +196,19 @@
         </section>
       </main>
       <div id="toast" class="toast hidden" aria-live="polite"></div>
+      <div id="milestoneOverlay" class="milestone-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="milestoneOverlayTitle">
+        <div class="milestone-overlay-backdrop"></div>
+        <div class="milestone-overlay-card">
+          <div id="milestoneParticles" class="milestone-particles" aria-hidden="true"></div>
+          <span class="milestone-overlay-kicker">Bond milestone unlocked</span>
+          <h2 id="milestoneOverlayTitle" class="milestone-overlay-title">Getting Closer</h2>
+          <p id="milestoneOverlayDesc" class="milestone-overlay-desc"></p>
+          <div class="milestone-overlay-meta">
+            <span id="milestoneOverlayBond" class="milestone-overlay-bond">Bond 25</span>
+          </div>
+          <button id="milestoneOverlayDismiss" class="btn-primary milestone-overlay-dismiss" type="button">Continue</button>
+        </div>
+      </div>
     </div>
     <script src="/assets/app.js" type="module"></script>
   </body>

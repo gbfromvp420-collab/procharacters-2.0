@@ -198,13 +198,124 @@ body {
   position: relative;
   aspect-ratio: 1 / 1;
   background: #05060a;
+  --presence-accent: #6c8cff;
+  --presence-glow: 0.35;
+  border-radius: 0;
+  transition: box-shadow 0.6s ease;
+}
+
+.video-shell.presence-live {
+  animation: presence-breathe 4.2s ease-in-out infinite;
+}
+
+.video-shell.presence-performing .presence-shimmer {
+  opacity: 1;
+}
+
+.video-shell.presence-celebrating {
+  animation: presence-celebrate 1.4s ease-out 2;
+}
+
+@keyframes presence-breathe {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--presence-accent) 28%, transparent),
+      0 0 calc(18px * var(--presence-glow)) color-mix(in srgb, var(--presence-accent) 45%, transparent);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--presence-accent) 42%, transparent),
+      0 0 calc(34px * var(--presence-glow)) color-mix(in srgb, var(--presence-accent) 62%, transparent);
+  }
+}
+
+@keyframes presence-celebrate {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.012);
+  }
+}
+
+.presence-aura {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 62%,
+    color-mix(in srgb, var(--presence-accent) 22%, transparent) 0%,
+    transparent 68%
+  );
+  opacity: calc(0.55 + var(--presence-glow) * 0.35);
+  z-index: 0;
+}
+
+.presence-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.07) 45%,
+    transparent 60%
+  );
+  background-size: 220% 100%;
+  animation: presence-shimmer 1.8s linear infinite;
+  z-index: 2;
+}
+
+@keyframes presence-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+.presence-tier-spark {
+  --presence-accent: #6c8cff;
+  --presence-glow: 0.35;
+}
+
+.presence-tier-warmth {
+  --presence-accent: #ff8fa3;
+  --presence-glow: 0.5;
+}
+
+.presence-tier-trust {
+  --presence-accent: #ffd878;
+  --presence-glow: 0.62;
+}
+
+.presence-tier-depth {
+  --presence-accent: #c77dff;
+  --presence-glow: 0.78;
+}
+
+.presence-tier-inseparable {
+  --presence-accent: #ffe566;
+  --presence-glow: 1;
 }
 
 #avatarVideo {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   background: #000;
+}
+
+.presence-tier-badge {
+  font-size: 0.72rem;
 }
 
 .video-overlay {
@@ -484,6 +595,186 @@ button:not(:disabled):hover {
   gap: 10px;
   padding: 16px;
   border-top: 1px solid var(--panel-border);
+}
+
+.composer-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.composer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 72px;
+}
+
+.btn-mic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.btn-mic:not(:disabled):hover {
+  border-color: rgba(108, 140, 255, 0.45);
+}
+
+.btn-mic.listening {
+  border-color: rgba(255, 107, 122, 0.55);
+  background: rgba(255, 107, 122, 0.12);
+  box-shadow: 0 0 18px rgba(255, 107, 122, 0.25);
+  animation: mic-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+.mic-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.milestone-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.milestone-overlay.hidden {
+  display: none;
+}
+
+.milestone-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 10, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.milestone-overlay-card {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 92vw);
+  padding: 28px 26px 22px;
+  border-radius: 20px;
+  border: 1px solid rgba(232, 196, 104, 0.35);
+  background: linear-gradient(160deg, rgba(20, 24, 36, 0.98), rgba(12, 14, 22, 0.98));
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 40px rgba(232, 196, 104, 0.12);
+  text-align: center;
+  overflow: hidden;
+  animation: milestone-card-in 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes milestone-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.milestone-overlay-kicker {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffd878;
+  margin-bottom: 8px;
+}
+
+.milestone-overlay-title {
+  margin: 0 0 10px;
+  font-size: 1.55rem;
+  font-weight: 600;
+  background: linear-gradient(90deg, #ffe9a8, #ffd878, #ff8fa3);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.milestone-overlay-desc {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.milestone-overlay-meta {
+  margin-bottom: 18px;
+}
+
+.milestone-overlay-bond {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ff8fa3;
+  background: rgba(255, 143, 163, 0.1);
+  border: 1px solid rgba(255, 143, 163, 0.28);
+}
+
+.milestone-overlay-dismiss {
+  width: 100%;
+}
+
+.milestone-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.milestone-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: milestone-particle-burst 1.6s ease-out forwards;
+}
+
+@keyframes milestone-particle-burst {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.2);
+  }
 }
 
 textarea {
@@ -838,6 +1129,19 @@ textarea:focus {
 
   .chat-panel {
     min-height: 480px;
+  }
+
+  .composer-row {
+    grid-template-columns: 1fr;
+  }
+
+  .composer-actions {
+    flex-direction: row;
+    min-width: 0;
+  }
+
+  .composer-actions .btn-secondary {
+    flex: 1;
   }
 }
 
