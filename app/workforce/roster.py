@@ -23,10 +23,11 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
             "KGC_Command_Authority",
             "Sovereign_Empire_Authority",
             "Presence_Theater_Authority",
+            "Continuity_Forge_Authority",
         ],
         "tier": "ceo",
-        "phase_earned": 9,
-        "award_lb_gold": 10.0,
+        "phase_earned": 10,
+        "award_lb_gold": 11.0,
     },
     {
         "id": "intimacy-architect-sub-01",
@@ -138,6 +139,14 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
         "skills": ["BondAura_VoiceCelebration"],
         "tier": "team",
         "phase_earned": 9,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "continuityforge-resume-sub-01",
+        "codename": "ContinuityForge_Resume_Sub_01",
+        "skills": ["SoftPCReset_CompanionRehydrate"],
+        "tier": "team",
+        "phase_earned": 10,
         "award_lb_gold": 1.0,
     },
 ]

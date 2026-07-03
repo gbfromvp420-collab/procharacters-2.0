@@ -124,6 +124,42 @@ class WebRTCSessionManager:
         logger.debug("Created WebRTC session %s", session_id)
         return session
 
+    def restore_session(self, session_id: str) -> WebRTCSession:
+        """Re-create signaling + media bridge for an existing session_id (companion resume / restart)."""
+        existing = self._sessions.get(session_id)
+        if existing is not None and not existing.media_bridge.is_closed:
+            return existing
+
+        if existing is not None:
+            self._sessions.pop(session_id, None)
+
+        peer_connection = RTCPeerConnection()
+        media_bridge = AvatarMediaBridge(session_id, settings=self._settings)
+        session = WebRTCSession(
+            session_id=session_id,
+            peer_connection=peer_connection,
+            media_bridge=media_bridge,
+            created_at=_utc_now_iso(),
+        )
+        self._sessions[session_id] = session
+        self._register_peer_handlers(session)
+        logger.info("Restored WebRTC session %s for resume", session_id)
+        return session
+
+    def ensure_session(self, session_id: str) -> WebRTCSession:
+        """Return active session or restore one when companion state exists."""
+        existing = self.get_session(session_id)
+        if existing is not None and not existing.media_bridge.is_closed:
+            return existing
+        return self.restore_session(session_id)
+
+    def can_resume_session(self, session_id: str) -> bool:
+        if self.get_session(session_id) is not None:
+            return True
+        if self._companion_store is not None and self._companion_store.has_session(session_id):
+            return True
+        return False
+
     async def handle_offer(self, sdp: str, session_id: str | None = None) -> tuple[str, str]:
         """Handle (re)negotiation offer.
 
@@ -134,7 +170,12 @@ class WebRTCSessionManager:
         - Queues/flushes pending ICE candidates.
         """
         session: WebRTCSession | None = None
-        if session_id and (session := self.get_session(session_id)):
+        if session_id:
+            session = self.get_session(session_id)
+            if session is None and self.can_resume_session(session_id):
+                session = self.restore_session(session_id)
+
+        if session is not None:
             pc = session.peer_connection
             bad_state = (
                 pc is None
@@ -269,6 +310,23 @@ class WebRTCSessionManager:
         # Complements reset in begin_stream/attach/signals. Safe to call anytime.
         bridge.reset_pacing_clocks()
 
+    async def _prepare_session_for_resume(self, session: WebRTCSession) -> None:
+        """Swap in a fresh peer connection while retaining session entry and media bridge."""
+        sid = session.session_id
+        if sid not in self._sessions or self._sessions[sid] is not session:
+            return
+        if session.media_bridge.is_closed:
+            return
+
+        pc = session.peer_connection
+        conn = getattr(pc, "connectionState", "")
+        ice = getattr(pc, "iceConnectionState", "")
+        if conn not in ("failed", "closed") and ice != "failed":
+            return
+
+        await self._recreate_peer_connection(session)
+        logger.info("Session %s peer reset for resume (bridge retained)", sid)
+
     async def _recreate_peer_connection(self, session: WebRTCSession) -> None:
         """Close old PC, create fresh one under same session+bridge (for bad-state recovery).
 
@@ -334,8 +392,8 @@ class WebRTCSessionManager:
             session.connection_state = state
             logger.info("WebRTC session %s connection state: %s", session_id, state)
             if state in {"failed", "closed"}:
-                # Only hard close on terminal failure; "disconnected" is often transient/recoverable via re-offer
-                await self.close_session(session_id)
+                # Keep session + media bridge alive for page-reload / auto-resume; fresh PC on next offer.
+                await self._prepare_session_for_resume(session)
 
         @peer_connection.on("iceconnectionstatechange")
         async def on_iceconnectionstatechange() -> None:
@@ -343,7 +401,7 @@ class WebRTCSessionManager:
             session.ice_connection_state = state
             logger.info("WebRTC session %s ICE state: %s", session_id, state)
             if state == "failed":
-                await self.close_session(session_id)
+                await self._prepare_session_for_resume(session)
 
         @peer_connection.on("icegatheringstatechange")
         def on_icegatheringstatechange() -> None:

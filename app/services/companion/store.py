@@ -322,6 +322,10 @@ class SessionCompanionStore:
             self._persist()
         return removed
 
+    def has_session(self, session_id: str) -> bool:
+        """True if companion state exists for this id (without creating a new session)."""
+        return session_id in self._sessions
+
     def list_session_ids(self) -> list[str]:
         return list(self._sessions.keys())
 

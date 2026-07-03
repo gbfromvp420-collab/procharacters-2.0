@@ -36,6 +36,25 @@ async def create_session(request: Request) -> SessionCreatedResponse:
 
 
 @router.post(
+    "/session/{session_id}/restore",
+    response_model=SessionCreatedResponse,
+    summary="Ensure a WebRTC session exists for resume (rehydrate from companion if needed)",
+)
+async def restore_session(request: Request, session_id: str) -> SessionCreatedResponse:
+    session_manager = request.app.state.session_manager
+    if not session_manager.can_resume_session(session_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown WebRTC session for resume: {session_id}",
+        )
+    session = session_manager.ensure_session(session_id)
+    return SessionCreatedResponse(
+        session_id=session.session_id,
+        ice_servers=session_manager.ice_servers,
+    )
+
+
+@router.post(
     "/offer",
     response_model=WebRTCAnswerResponse,
     summary="Exchange SDP offer for answer",

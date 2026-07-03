@@ -7,7 +7,7 @@ Run: python -m pytest tests/ -q --tb=line
 import asyncio
 import pytest
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.models.llm import ChatMessage
 from app.services.llm.client import MockLLMClient
 from app.services.tts.client import MockTTSClient
@@ -62,6 +62,38 @@ async def test_session_manager_close_all():
 
     await mgr.close_all()
     assert mgr.active_session_count == 0
+
+
+@pytest.mark.asyncio
+async def test_session_manager_soft_reset_keeps_session_for_resume():
+    mgr = WebRTCSessionManager()
+    session = mgr.create_session()
+    sid = session.session_id
+
+    await mgr._prepare_session_for_resume(session)
+
+    assert mgr.active_session_count == 1
+    assert sid in mgr.list_session_ids()
+    assert not session.media_bridge.is_closed
+    assert session.peer_connection.connectionState == "new"
+
+
+@pytest.mark.asyncio
+async def test_session_manager_restore_from_companion_store():
+    from app.services.companion.store import SessionCompanionStore
+
+    store = SessionCompanionStore(Settings(companion_persist_enabled=False))
+    mgr = WebRTCSessionManager(settings=Settings(), companion_store=store)
+    sid = "companion-only-session"
+    store.get_or_create(sid)
+
+    assert mgr.get_session(sid) is None
+    assert mgr.can_resume_session(sid) is True
+
+    restored = mgr.restore_session(sid)
+    assert restored.session_id == sid
+    assert mgr.active_session_count == 1
+    assert not restored.media_bridge.is_closed
 
 
 def test_mock_llm_client_generates_tokens():

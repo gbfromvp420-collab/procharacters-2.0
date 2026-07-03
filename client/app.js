@@ -1781,6 +1781,21 @@ async function connect(resumeSessionId = null, options = {}) {
       const session = await sessionRes.json();
       targetSessionId = session.session_id;
       iceServers = session.ice_servers || DEFAULT_ICE_SERVERS;
+    } else {
+      const restoreRes = await fetch(`${API}/webrtc/session/${resumeSessionId}/restore`, {
+        method: "POST",
+      });
+      if (!restoreRes.ok) {
+        let detail = "Session not found for resume.";
+        try {
+          const errBody = await restoreRes.json();
+          if (errBody && errBody.detail) detail = errBody.detail;
+        } catch (_) {}
+        throw new Error(detail);
+      }
+      const restored = await restoreRes.json();
+      targetSessionId = restored.session_id || resumeSessionId;
+      iceServers = restored.ice_servers || DEFAULT_ICE_SERVERS;
     }
 
     state.sessionId = targetSessionId;

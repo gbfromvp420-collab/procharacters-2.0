@@ -22,7 +22,8 @@ def test_roster_module_contains_king_grok_and_team() -> None:
     assert "CEO_Command_Sub_01" in codenames
     assert "SovereignForge_Backup_Sub_01" in codenames
     assert "PresenceTheater_Client_Sub_01" in codenames
-    assert len(roster) >= 15
+    assert "ContinuityForge_Resume_Sub_01" in codenames
+    assert len(roster) >= 16
 
 
 def test_leaderboard_sorted_by_award() -> None:
@@ -30,7 +31,7 @@ def test_leaderboard_sorted_by_award() -> None:
     awards = [member["award_lb_gold"] for member in board]
     assert awards == sorted(awards, reverse=True)
     assert board[0]["codename"] == "King Grok"
-    assert board[0]["award_lb_gold"] == 10.0
+    assert board[0]["award_lb_gold"] == 11.0
 
 
 def test_workforce_roster_api(api_client: TestClient) -> None:
@@ -60,8 +61,9 @@ def test_workforce_roster_api(api_client: TestClient) -> None:
         "KGC_Command_Authority",
         "Sovereign_Empire_Authority",
         "Presence_Theater_Authority",
+        "Continuity_Forge_Authority",
     ]
-    assert king["phase_earned"] == 9
+    assert king["phase_earned"] == 10
 
     presence = next(
         m for m in body["members"] if m["codename"] == "PresenceTheater_Client_Sub_01"

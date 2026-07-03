@@ -122,6 +122,25 @@ def test_full_integration_flow(client: TestClient) -> None:
     assert any(msg["role"] == "user" for msg in history_body["messages"])
 
 
+def test_webrtc_restore_endpoint_rehydrates_companion_session(client: TestClient) -> None:
+    session_id = "restore-companion-session"
+    patched = client.patch(
+        f"/api/v1/companion/{session_id}/config",
+        json={"voice": "warm"},
+    )
+    assert patched.status_code == 200
+
+    restored = client.post(f"/api/v1/webrtc/session/{session_id}/restore")
+    assert restored.status_code == 200
+    body = restored.json()
+    assert body["session_id"] == session_id
+    assert isinstance(body["ice_servers"], list)
+
+    listed = client.get("/api/v1/webrtc/sessions")
+    assert listed.status_code == 200
+    assert session_id in listed.json()["sessions"]
+
+
 def test_persistence_restart_round_trip(
     monkeypatch: pytest.MonkeyPatch,
     integration_settings: Settings,
