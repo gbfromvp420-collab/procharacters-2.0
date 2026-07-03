@@ -1,10 +1,17 @@
 class SyncTimeline:
-    """Maps audio chunk durations to monotonic video presentation timestamps."""
+    """Maps audio chunk durations to monotonic video presentation timestamps.
 
-    def __init__(self, fps: int) -> None:
+    Supports initialization with start offsets for continuous PTS across
+    multi-turn / resume performs on the same WebRTC session+bridge.
+    (Defaults preserve backward compat for standalone /video/sync etc.)
+    """
+
+    def __init__(
+        self, fps: int, *, start_audio_ms: int = 0, start_frame_index: int = 0
+    ) -> None:
         self._fps = fps
-        self._frame_index = 0
-        self._audio_cursor_ms = 0
+        self._frame_index = start_frame_index
+        self._audio_cursor_ms = start_audio_ms
 
     @property
     def audio_cursor_ms(self) -> int:

@@ -26,6 +26,9 @@ class AvatarVideoTrack(VideoStreamTrack):
     def __init__(self, bridge: "AvatarMediaBridge") -> None:
         super().__init__()
         self._bridge = bridge
+        # Pacing clocks rebased on first packet's pts_ms after each reset_pacing_clocks().
+        # Must be reset for new perform segments + resume/re-attach (see media_bridge).
+        # (PTS in packets continue monotonically for the session.)
         self._clock_origin_ms: int | None = None
         self._clock_start: float | None = None
     async def recv(self) -> VideoFrame:
@@ -58,6 +61,13 @@ class AvatarVideoTrack(VideoStreamTrack):
             return
 
         origin = self._clock_origin_ms or 0
+        # Guard: re-anchor if pts goes backward (defensive for resume/multi-turn races
+        # or any out-of-order packet delivery; keeps pacing stable).
+        if pts_ms < origin:
+            self._clock_start = time.time()
+            self._clock_origin_ms = pts_ms
+            return
+
         target = self._clock_start + (pts_ms - origin) / 1000.0
         wait = target - time.time()
         if wait > 0:
@@ -76,6 +86,9 @@ class AvatarAudioTrack(AudioStreamTrack):
     def __init__(self, bridge: "AvatarMediaBridge") -> None:
         super().__init__()
         self._bridge = bridge
+        # Pacing clocks rebased on first packet's pts_ms after each reset_pacing_clocks().
+        # Must be reset for new perform segments + resume/re-attach (see media_bridge).
+        # (PTS in packets continue monotonically for the session.)
         self._clock_origin_ms: int | None = None
         self._clock_start: float | None = None
 
@@ -98,6 +111,13 @@ class AvatarAudioTrack(AudioStreamTrack):
             return
 
         origin = self._clock_origin_ms or 0
+        # Guard: re-anchor if pts goes backward (defensive for resume/multi-turn races
+        # or any out-of-order packet delivery; keeps pacing stable).
+        if pts_ms < origin:
+            self._clock_start = time.time()
+            self._clock_origin_ms = pts_ms
+            return
+
         target = self._clock_start + (pts_ms - origin) / 1000.0
         wait = target - time.time()
         if wait > 0:

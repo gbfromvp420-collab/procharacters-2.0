@@ -40,3 +40,8 @@ class ActiveSessionsResponse(BaseModel):
     count: int
     # Extended details (conn/ice states etc) for health/debug/UI; original fields kept for backward compat
     details: list[dict[str, str]] = Field(default_factory=list)
+
+
+class IceCandidatesResponse(BaseModel):
+    """List of server ICE candidates for client to add via trickle polling."""
+    candidates: list[dict[str, str | int | None]] = Field(default_factory=list)

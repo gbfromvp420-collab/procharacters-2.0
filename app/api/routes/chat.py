@@ -49,10 +49,12 @@ async def _perform_event_stream(
     session_manager=None,
 ) -> AsyncIterator[str]:
     bridge = None
+    initial_audio_cursor_ms = 0
     if payload.session_id and session_manager is not None:
         bridge = session_manager.get_media_bridge(payload.session_id)
         if bridge is not None:
             await bridge.begin_stream()
+            initial_audio_cursor_ms = bridge.audio_timeline_ms
 
     try:
         llm_events = llm_pipeline.stream_completion(
@@ -68,6 +70,8 @@ async def _perform_event_stream(
         async for event in video_pipeline.stream_from_speak_events(
             speak_events,
             session_id=payload.session_id,
+            initial_audio_cursor_ms=initial_audio_cursor_ms,
+            # initial_frame_index defaults to 0 (pts continuity driven by audio_cursor_ms)
         ):
             if bridge is not None:
                 await bridge.ingest_event(event)

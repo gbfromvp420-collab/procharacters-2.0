@@ -181,11 +181,16 @@ async def stream_perform_and_count(
     prompt: str,
     label: str = "perform",
 ) -> tuple[Counter, int, dict[str, Any]]:
-    """POST to /chat/perform, parse SSE events, return (type_counter, total_events, last_done_or_error)."""
+    """POST to /chat/perform, parse SSE events, return (type_counter, total_events, last_done_or_error).
+
+    Also captures video_frame pts_ms to verify continuous PTS across multi-turn performs
+    (no restart to ~0 on second perform; critical for pacing/lip-sync).
+    """
     counters: Counter = Counter()
     total = 0
     summary: dict[str, Any] = {"prompt": prompt}
     last_event: dict[str, Any] | None = None
+    video_pts: list[int] = []
 
     payload = {
         "session_id": session_id,
@@ -218,6 +223,10 @@ async def stream_perform_and_count(
                                 if content and len(summary.get("first_tokens", "")) < 60:
                                     summary.setdefault("first_tokens", "")
                                     summary["first_tokens"] += content
+
+                            # Capture pts for multi-turn continuity verification (video pts must not reset)
+                            if etype == "video_frame" and isinstance(event.get("pts_ms"), int):
+                                video_pts.append(event["pts_ms"])
                         except json.JSONDecodeError:
                             pass
                     buffer = ""
@@ -235,6 +244,8 @@ async def stream_perform_and_count(
                     counters[etype] += 1
                     total += 1
                     last_event = event
+                    if etype == "video_frame" and isinstance(event.get("pts_ms"), int):
+                        video_pts.append(event["pts_ms"])
                 except Exception:
                     pass
 
@@ -247,11 +258,16 @@ async def stream_perform_and_count(
     summary["counters"] = dict(counters)
     summary["total_events"] = total
     summary["last_event_type"] = last_event.get("type") if last_event else None
+    summary["video_pts"] = video_pts
+    summary["min_video_pts"] = min(video_pts) if video_pts else -1
+    summary["max_video_pts"] = max(video_pts) if video_pts else -1
 
     if last_event and last_event.get("type") in {"error", "tts_error", "video_error"}:
         summary["error"] = last_event.get("message")
 
     log(f"  {label}: received {total} events. Top types: {dict(counters.most_common(6))}")
+    if video_pts:
+        log(f"    {label} video_pts: min={summary['min_video_pts']} max={summary['max_video_pts']} count={len(video_pts)}")
     return counters, total, summary
 
 
@@ -328,6 +344,7 @@ async def run_demo(args: argparse.Namespace) -> int:
         print(f"First perform events:  {t1}  types={s1['counters']}")
         print(f"Resume perform events: {t2}  types={s2['counters']}")
         print(f"First tokens sample: {s1.get('first_tokens', '')[:80]!r}")
+        print(f"Video PTS continuity (multi-turn): first_max={s1.get('max_video_pts')}, resume_min={s2.get('min_video_pts')}")
         print()
 
         # Success criteria: saw some tokens, audio or video in at least one run (mock always produces)
@@ -337,11 +354,22 @@ async def run_demo(args: argparse.Namespace) -> int:
                 saw_pipeline = True
                 break
 
-        if saw_pipeline and t1 > 0 and t2 > 0:
+        # PTS continuity check for multi-turn/resume (new performs must NOT restart pts~0)
+        # With fix: second perform video pts start where first's audio/video left off (continuous).
+        continuity_ok = True
+        max1 = s1.get("max_video_pts", -1)
+        min2 = s2.get("min_video_pts", -1)
+        if max1 > 0 and min2 >= 0:
+            if min2 < max1 - 200:  # tolerate minor offset from frame alloc rounding; restart would give min2~0
+                continuity_ok = False
+                log("PTS CONTINUITY WARNING: resume video pts appear to have restarted (min2 << max1)")
+
+        if saw_pipeline and t1 > 0 and t2 > 0 and continuity_ok:
             print("✅ SUCCESS: pipeline produced events and resume (same session_id) worked.")
             print("   Observed event types include token/audio/video_frame/done flows.")
+            print("   PTS continuity across performs: OK (no restart).")
         else:
-            print("⚠️  Partial: check output. No tokens/audio/frames seen or one perform empty.")
+            print("⚠️  Partial: check output. No tokens/audio/frames seen or one perform empty or PTS restarted.")
             exit_code = 2
 
         if s1.get("error") or s2.get("error"):

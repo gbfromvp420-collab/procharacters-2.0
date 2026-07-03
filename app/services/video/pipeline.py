@@ -85,8 +85,20 @@ class VideoSyncPipeline:
         *,
         session_id: str | None = None,
         avatar_id: str | None = None,
+        initial_audio_cursor_ms: int = 0,
+        initial_frame_index: int = 0,
     ) -> AsyncIterator[PerformStreamEvent]:
-        timeline = SyncTimeline(fps=self._settings.video_fps)
+        """Stream speak events to video, using provided initial cursors (from bridge)
+        to keep PTS monotonic and continuous for multi-turn sessions.
+
+        Fresh timeline object per perform, but initialized from session audio cursor
+        so video pts start where prior segment left off (tracks expect continuous time).
+        """
+        timeline = SyncTimeline(
+            fps=self._settings.video_fps,
+            start_audio_ms=initial_audio_cursor_ms,
+            start_frame_index=initial_frame_index,
+        )
         total_duration_ms = 0
 
         async for event in events:

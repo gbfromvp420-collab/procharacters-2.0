@@ -177,23 +177,49 @@ async function postIceCandidate(candidate) {
   });
 }
 
-async function fetchAndAddServerCandidates(sessionId) {
-  if (!sessionId || !state.pc) return;
+function stopIceCandidatePolling() {
+  if (state.icePollInterval) {
+    clearInterval(state.icePollInterval);
+    state.icePollInterval = null;
+  }
+}
+
+function startIceCandidatePolling() {
+  stopIceCandidatePolling();
+  if (!state.sessionId || !state.pc) return;
+  // Immediate first fetch (server candidates may be ready or arrive soon after answer)
+  fetchAndAddServerCandidatesOnce().catch(() => {});
+  state.icePollInterval = setInterval(() => {
+    if (!state.sessionId || !state.pc || ["closed", "failed"].includes(state.pc.connectionState)) {
+      stopIceCandidatePolling();
+      return;
+    }
+    fetchAndAddServerCandidatesOnce().catch(() => {});
+  }, 300);
+}
+
+async function fetchAndAddServerCandidatesOnce() {
+  if (!state.sessionId || !state.pc) return;
   try {
-    const res = await fetch(`${API}/webrtc/session/${sessionId}/candidates?clear=true`);
+    const res = await fetch(`${API}/webrtc/ice-candidates/${state.sessionId}`);
     if (!res.ok) return;
     const data = await res.json();
-    for (const c of (data.candidates || [])) {
+    const cands = (data && data.candidates) || [];
+    for (const c of cands) {
       if (c && c.candidate) {
-        await state.pc.addIceCandidate(new RTCIceCandidate({
-          candidate: c.candidate,
-          sdpMid: c.sdp_mid,
-          sdpMLineIndex: c.sdp_mline_index,
-        })).catch(() => {});
+        try {
+          await state.pc.addIceCandidate(new RTCIceCandidate({
+            candidate: c.candidate,
+            sdpMid: c.sdp_mid ?? null,
+            sdpMLineIndex: c.sdp_mline_index ?? null,
+          }));
+        } catch (e) {
+          // Harmless: duplicate candidate or timing (already connected, etc.)
+        }
       }
     }
   } catch (e) {
-    // non-fatal for trickle
+    // non-fatal network / parse during trickle polling
   }
 }
 
@@ -319,8 +345,9 @@ async function connect(resumeSessionId = null) {
     await pc.setRemoteDescription({ type: "answer", sdp: answer.sdp });
     els.avatarVideo.muted = false;
 
-    // Fetch any server-generated ICE candidates (trickle support from signaling subagent)
-    fetchAndAddServerCandidates(state.sessionId);
+    // Start polling for server ICE candidates (full trickle support). One-shot insufficient because
+    // server candidates are emitted asynchronously after setLocalDescription on server PC.
+    startIceCandidatePolling();
 
     els.disconnectBtn.disabled = false;
     els.sendBtn.disabled = false;
@@ -366,6 +393,7 @@ async function disconnect() {
   els.connectBtn.disabled = false;
 
   stopStatsPolling();
+  stopIceCandidatePolling();
 
   if (state.sessionId) {
     // Leave the server session alive so it can be resumed (paste the ID shown in the badge).
@@ -383,6 +411,7 @@ async function disconnect() {
   state.connected = false;
   state.performing = false;
   state.connectionMode = "new";
+  state.icePollInterval = null;
   state.metrics = { tokens: 0, audio: 0, frames: 0 };
   updateMetrics();
   if (els.webrtcStats) els.webrtcStats.textContent = "WebRTC: —";

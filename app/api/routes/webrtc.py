@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from app.models.webrtc import (
     ActiveSessionsResponse,
     IceCandidateRequest,
+    IceCandidatesResponse,
     SessionCreatedResponse,
     WebRTCAnswerResponse,
     WebRTCOfferRequest,
@@ -80,6 +81,25 @@ async def submit_ice_candidate(
             sdp_mid=payload.sdp_mid,
             sdp_mline_index=payload.sdp_mline_index,
         )
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get(
+    "/ice-candidates/{session_id}",
+    response_model=IceCandidatesResponse,
+    summary="Fetch server-generated ICE candidates (trickle ICE support; drains buffer on read)",
+)
+async def get_ice_candidates(request: Request, session_id: str) -> IceCandidatesResponse:
+    """Clients poll this after setting remote description to receive remote candidates incrementally."""
+    session_manager = request.app.state.session_manager
+    try:
+        # Non-destructive read: client may poll at varying times; duplicates on addIceCandidate are harmless
+        cands = session_manager.get_outgoing_ice_candidates(session_id, clear=False)
+        return IceCandidatesResponse(candidates=cands)
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

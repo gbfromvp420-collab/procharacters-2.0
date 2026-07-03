@@ -33,7 +33,7 @@ class AvatarMediaBridge:
         self._video_queue: asyncio.Queue[VideoPacket | object] = asyncio.Queue(maxsize=256)  # video frames can burst a bit
         self._closed = asyncio.Event()
         self._tracks_attached = False
-        self._audio_timeline_ms = 0
+        self._audio_timeline_ms = 0  # session-long monotonic media time; never reset on segments
         self._audio_track: "AvatarAudioTrack | None" = None
         self._video_track: "AvatarVideoTrack | None" = None
 
@@ -45,11 +45,23 @@ class AvatarMediaBridge:
     def tracks_attached(self) -> bool:
         return self._tracks_attached
 
+    @property
+    def audio_timeline_ms(self) -> int:
+        """Current monotonic audio/media timeline cursor (ms) for this session.
+
+        Used as start_pts for audio packets and to initialize SyncTimeline for video
+        on each perform segment. Never reset by begin_stream so PTS stay continuous
+        for multi-turn/resume (tracks and RTP expect non-decreasing time).
+        Advanced only by push_audio_chunk.
+        """
+        return self._audio_timeline_ms
+
     def attach_tracks(self) -> tuple["AvatarAudioTrack", "AvatarVideoTrack"]:
         """Create (once) the avatar tracks bound to this bridge.
 
         Idempotent for re-negotiation: safe to call on 2nd+ offers; tracks objects are
         reused across PC re-creates (new PC gets them via addTrack).
+        Always resets pacing clocks on attach.
         """
         from app.services.webrtc.tracks import AvatarAudioTrack, AvatarVideoTrack
 
@@ -58,20 +70,26 @@ class AvatarMediaBridge:
         if self._video_track is None:
             self._video_track = AvatarVideoTrack(self)
         self._tracks_attached = True
-        # Reset clocks on (re)attach to avoid drift on resume/reconnect scenarios
-        self._reset_track_clocks()
+        # Reset pacing clocks on (re)attach to avoid drift on resume/reconnect scenarios
+        self.reset_pacing_clocks()
         return self._audio_track, self._video_track
 
     async def begin_stream(self) -> None:
-        """Reset timeline + queues + track pacing for a new /chat/perform (or resume segment).
+        """Prepare for a new /chat/perform (or resume segment): drain stale queues
+        and reset track pacing clocks.
 
-        Called on every perform even for same WebRTC session (re-negotiation does not
-        require re-begin; this is for media segmenting within session).
+        IMPORTANT: _audio_timeline_ms is *NOT* reset here. It accumulates across
+        performs so that PTS values (audio packets + video frames) remain monotonic
+        and continuous. This ensures tracks see continuous time (critical for WebRTC
+        + lip-sync). Pacing clocks are reset independently so new segments don't
+        inherit stale real-time anchors after gaps.
+
+        Called on every perform for same WebRTC session.
+        Re-negotiation itself does not call this (handled in attach/resume paths).
         """
-        self._audio_timeline_ms = 0
         await self._drain_queue(self._audio_queue)
         await self._drain_queue(self._video_queue)
-        self._reset_track_clocks()
+        self.reset_pacing_clocks()
 
     async def ingest_event(self, event: PerformStreamEvent) -> None:
         """Ingest pipeline events into WebRTC queues.
@@ -153,8 +171,13 @@ class AvatarMediaBridge:
         return item  # type: ignore[return-value]
 
     async def signal_segment_end(self) -> None:
-        """Marks the end of one perform segment without tearing down the peer."""
+        """Marks the end of one perform segment without tearing down the peer.
+
+        Resets pacing clocks so a subsequent resume offer or next perform starts
+        with fresh real-time anchor (while PTS continue from _audio_timeline_ms).
+        """
         logger.debug("Perform segment ended for session %s", self.session_id)
+        self.reset_pacing_clocks()
 
     async def close(self, *, reason: str = "explicit") -> None:
         if self.is_closed:
@@ -178,8 +201,18 @@ class AvatarMediaBridge:
             except asyncio.QueueEmpty:
                 break
 
-    def _reset_track_clocks(self) -> None:
-        """Reset per-track pacing clocks so multi-turn / resumed performs don't drift or burst."""
+    def reset_pacing_clocks(self) -> None:
+        """Reset per-track pacing clocks (_clock_start / _clock_origin_ms).
+
+        Called on:
+        - attach_tracks (first + re-attach)
+        - begin_stream (new perform segment)
+        - signal_segment_end (after each perform)
+        - resume offer / re-attach paths
+
+        This re-anchors pacing for the *next* packet's pts without affecting the
+        PTS values themselves (which continue via audio_timeline_ms + SyncTimeline init).
+        """
         if self._audio_track is not None:
             self._audio_track._clock_start = None
             self._audio_track._clock_origin_ms = None
