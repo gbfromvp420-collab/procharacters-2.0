@@ -2,6 +2,8 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
 
+from app.services.observability.metrics import MetricsCollector
+
 from app.models.webrtc import (
     ActiveSessionsResponse,
     IceCandidateRequest,
@@ -24,7 +26,9 @@ router = APIRouter(prefix="/webrtc", tags=["webrtc"])
 )
 async def create_session(request: Request) -> SessionCreatedResponse:
     session_manager = request.app.state.session_manager
+    metrics: MetricsCollector = request.app.state.metrics
     session = session_manager.create_session()
+    metrics.increment_sessions_created()
     return SessionCreatedResponse(
         session_id=session.session_id,
         ice_servers=session_manager.ice_servers,
@@ -114,7 +118,10 @@ async def get_ice_candidates(request: Request, session_id: str) -> IceCandidates
 )
 async def close_session(request: Request, session_id: str) -> None:
     session_manager = request.app.state.session_manager
+    metrics: MetricsCollector = request.app.state.metrics
     closed = await session_manager.close_session(session_id)
+    if closed:
+        metrics.increment_sessions_closed()
     if not closed:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -130,7 +137,11 @@ async def close_session(request: Request, session_id: str) -> None:
 async def close_all_sessions(request: Request) -> None:
     """Dev-only helper to clean up accumulated test/demo sessions without server restart."""
     session_manager = request.app.state.session_manager
+    metrics: MetricsCollector = request.app.state.metrics
+    count = session_manager.active_session_count
     await session_manager.close_all()
+    if count:
+        metrics.increment_sessions_closed(count)
     logger.info("Closed all active WebRTC sessions (via DELETE /webrtc/sessions)")
 
 

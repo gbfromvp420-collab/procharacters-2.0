@@ -1,9 +1,14 @@
 """Tests for SessionCompanionStore and multi-turn message assembly."""
 
+import json
+
 import pytest
+from fastapi.testclient import TestClient
 
 from app.core.config import Settings
+from app.main import create_app
 from app.models.llm import ChatMessage
+from app.services.companion.catalog import get_relationship_mode_overlay
 from app.services.companion.store import SessionCompanionStore
 from app.services.webrtc.session_manager import WebRTCSessionManager
 
@@ -193,3 +198,90 @@ async def test_webrtc_close_keeps_companion_state(store: SessionCompanionStore):
     assert closed is True
     assert len(store.get_messages(sid)) == 2
     assert store.get_config(sid)["turn_count"] == 1
+
+
+def test_set_relationship_mode(store: SessionCompanionStore):
+    sid = "sess-relationship"
+    store.set_config(sid, relationship_mode="romantic")
+
+    cfg = store.get_config(sid)
+    assert cfg["relationship_mode"] == "romantic"
+
+
+def test_build_llm_messages_appends_relationship_overlay(store: SessionCompanionStore):
+    sid = "sess-overlay"
+    settings = store._settings  # noqa: SLF001
+    store.set_config(sid, relationship_mode="flirtatious")
+
+    built = store.build_llm_messages(
+        sid,
+        [ChatMessage(role="user", content="Hello")],
+        use_memory=False,
+    )
+
+    overlay = get_relationship_mode_overlay(settings, "flirtatious")
+    assert overlay
+    assert overlay in built[0].content
+    assert built[0].content.startswith("You are a test companion.")
+
+
+def test_build_llm_messages_without_relationship_mode_has_no_overlay(
+    store: SessionCompanionStore,
+):
+    sid = "sess-no-overlay"
+    built = store.build_llm_messages(
+        sid,
+        [ChatMessage(role="user", content="Hello")],
+        use_memory=False,
+    )
+
+    assert built[0].content == "You are a test companion."
+
+
+@pytest.fixture
+def api_client() -> TestClient:
+    with TestClient(create_app()) as client:
+        yield client
+
+
+def test_companion_export_json(api_client: TestClient) -> None:
+    session_id = "export-json-session"
+    api_client.patch(
+        f"/api/v1/companion/{session_id}/config",
+        json={"relationship_mode": "deep"},
+    )
+    api_client.post(
+        f"/api/v1/companion/{session_id}/heartbeat",
+    )
+
+    response = api_client.get(
+        f"/api/v1/companion/{session_id}/export",
+        params={"format": "json"},
+    )
+    assert response.status_code == 200
+    assert "attachment" in response.headers.get("content-disposition", "")
+    body = json.loads(response.text)
+    assert body["session_id"] == session_id
+    assert body["config"]["relationship_mode"] == "deep"
+
+
+def test_companion_export_txt(api_client: TestClient) -> None:
+    session_id = "export-txt-session"
+    response = api_client.get(
+        f"/api/v1/companion/{session_id}/export",
+        params={"format": "txt"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert f"Session: {session_id}" in response.text
+
+
+def test_companion_heartbeat(api_client: TestClient) -> None:
+    session_id = "heartbeat-session"
+    response = api_client.post(f"/api/v1/companion/{session_id}/heartbeat")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["session_id"] == session_id
+    assert body["status"] == "active"
+    assert body["turn_count"] == 0
+    assert body["last_active_at"]

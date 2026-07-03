@@ -18,6 +18,10 @@ const state = {
   turnCount: 0,
   catalog: null,
   selectedAvatarId: null,
+  selectedRelationshipMode: "friendly",
+  appVersion: null,
+  heartbeatInterval: null,
+  serverMetricsInterval: null,
   webrtcSessions: [],
   companionSessions: [],
   providerStatus: null,
@@ -58,6 +62,11 @@ const els = {
   promptPresets: document.getElementById("promptPresets"),
   providerStatus: document.getElementById("providerStatus"),
   persistedSessionsIndicator: document.getElementById("persistedSessionsIndicator"),
+  relationshipModes: document.getElementById("relationshipModes"),
+  exportBtn: document.getElementById("exportBtn"),
+  versionBadge: document.getElementById("versionBadge"),
+  serverMetricsPeek: document.getElementById("serverMetricsPeek"),
+  refreshMetricsBtn: document.getElementById("refreshMetricsBtn"),
 };
 
 const FALLBACK_CATALOG = {
@@ -78,6 +87,12 @@ const FALLBACK_CATALOG = {
       prompt:
         "You are a friendly, helpful AI video companion. Keep replies concise and conversational for spoken dialogue.",
     },
+  ],
+  relationship_modes: [
+    { id: "friendly", label: "Friendly", description: "Warm, approachable companion energy." },
+    { id: "flirtatious", label: "Flirtatious", description: "Playful banter with light charm." },
+    { id: "romantic", label: "Romantic", description: "Affectionate, emotionally attentive tone." },
+    { id: "deep", label: "Deep", description: "Thoughtful, vulnerable conversations." },
   ],
 };
 
@@ -103,6 +118,7 @@ function getCompanionConfigPayload() {
     avatar_id: els.avatarSelect?.value || "default",
     voice: els.voiceSelect?.value || "default",
     system_prompt: (els.systemPromptInput?.value || "").trim() || null,
+    relationship_mode: state.selectedRelationshipMode || "friendly",
   };
 }
 
@@ -114,6 +130,7 @@ function applyCompanionConfig(config) {
     els.systemPromptInput.value = config.system_prompt;
     syncPromptPresetHighlight();
   }
+  selectRelationshipMode(config.relationship_mode || "friendly", { patch: false });
   if (typeof config.turn_count === "number") {
     state.turnCount = config.turn_count;
     updateMemoryIndicator();
@@ -213,6 +230,43 @@ function syncPromptPresetHighlight() {
   });
 }
 
+function selectRelationshipMode(modeId, options = {}) {
+  const { patch = true } = options;
+  if (!modeId) return;
+  state.selectedRelationshipMode = modeId;
+  if (els.relationshipModes) {
+    els.relationshipModes.querySelectorAll(".mode-chip").forEach((chip) => {
+      const isSelected = chip.dataset.modeId === modeId;
+      chip.classList.toggle("selected", isSelected);
+      chip.setAttribute("aria-checked", isSelected ? "true" : "false");
+    });
+  }
+  if (patch && state.connected && state.sessionId) {
+    patchCompanionConfig(state.sessionId);
+  }
+}
+
+function renderRelationshipModes() {
+  if (!els.relationshipModes) return;
+  const modes = state.catalog?.relationship_modes || FALLBACK_CATALOG.relationship_modes;
+  els.relationshipModes.innerHTML = "";
+  modes.forEach((mode) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "mode-chip";
+    chip.dataset.modeId = mode.id;
+    chip.textContent = mode.label || mode.id;
+    chip.title = mode.description || mode.label || mode.id;
+    chip.setAttribute("role", "radio");
+    chip.setAttribute("aria-checked", "false");
+    chip.addEventListener("click", () => selectRelationshipMode(mode.id));
+    els.relationshipModes.appendChild(chip);
+  });
+  selectRelationshipMode(state.selectedRelationshipMode || modes[0]?.id || "friendly", {
+    patch: false,
+  });
+}
+
 function renderPromptPresets() {
   if (!els.promptPresets) return;
   const presets = state.catalog?.prompt_presets || FALLBACK_CATALOG.prompt_presets;
@@ -250,6 +304,7 @@ async function loadCatalog() {
   renderAvatarGallery();
   renderVoiceSelect();
   renderPromptPresets();
+  renderRelationshipModes();
 }
 
 function providerStatusClass(status) {
@@ -465,6 +520,117 @@ async function waitForConnectionState(timeoutMs = 12000) {
 
 function setLog(message) {
   els.log.textContent = message;
+}
+
+function updateVersionBadge(version) {
+  if (!els.versionBadge) return;
+  const label = version ? `v${version}` : "v—";
+  els.versionBadge.textContent = label;
+  els.versionBadge.title = version ? `API version ${version}` : "API version unknown";
+}
+
+function formatUptime(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  if (total < 60) return `${total}s`;
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  if (mins < 60) return `${mins}m ${secs}s`;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return `${hours}h ${remMins}m`;
+}
+
+function renderServerMetricsPeek(data) {
+  if (!els.serverMetricsPeek || !data) return;
+  const performs = data.perform_requests ?? data.perform_count ?? 0;
+  const uptime = formatUptime(data.uptime_seconds);
+  els.serverMetricsPeek.textContent = `server · ${performs} perform${performs === 1 ? "" : "s"} · up ${uptime}`;
+  els.serverMetricsPeek.title = `Server metrics — ${performs} perform(s), uptime ${uptime}`;
+}
+
+async function refreshServerMetrics({ quiet = false } = {}) {
+  try {
+    const res = await fetch(`${API}/metrics`);
+    if (!res.ok) throw new Error(`metrics ${res.status}`);
+    const data = await res.json();
+    renderServerMetricsPeek(data);
+    if (!quiet) {
+      const performs = data.perform_requests ?? data.perform_count ?? 0;
+      setLog(`Server metrics refreshed — ${performs} perform(s), up ${formatUptime(data.uptime_seconds)}`);
+    }
+    return data;
+  } catch (e) {
+    if (els.serverMetricsPeek) {
+      els.serverMetricsPeek.textContent = "server metrics unavailable";
+      els.serverMetricsPeek.title = "Could not fetch /metrics";
+    }
+    if (!quiet) setLog("Server metrics unavailable.");
+    console.warn("Metrics fetch failed", e);
+    return null;
+  }
+}
+
+function startServerMetricsPolling() {
+  if (state.serverMetricsInterval) return;
+  refreshServerMetrics({ quiet: true }).catch(() => {});
+  state.serverMetricsInterval = setInterval(() => {
+    refreshServerMetrics({ quiet: true }).catch(() => {});
+  }, 120000);
+}
+
+function stopServerMetricsPolling() {
+  if (state.serverMetricsInterval) {
+    clearInterval(state.serverMetricsInterval);
+    state.serverMetricsInterval = null;
+  }
+}
+
+async function sendHeartbeat() {
+  if (!state.connected || !state.sessionId) return;
+  try {
+    await fetch(`${API}/companion/${state.sessionId}/heartbeat`, { method: "POST" });
+  } catch (e) {
+    console.warn("Heartbeat failed", e);
+  }
+}
+
+function startHeartbeat() {
+  stopHeartbeat();
+  if (!state.connected || !state.sessionId) return;
+  sendHeartbeat().catch(() => {});
+  state.heartbeatInterval = setInterval(() => {
+    sendHeartbeat().catch(() => {});
+  }, 45000);
+}
+
+function stopHeartbeat() {
+  if (state.heartbeatInterval) {
+    clearInterval(state.heartbeatInterval);
+    state.heartbeatInterval = null;
+  }
+}
+
+function exportConversation(format = "txt") {
+  if (!state.sessionId) {
+    showToast("Connect to export conversation", true);
+    return;
+  }
+  const url = `${API}/companion/${state.sessionId}/export?format=${encodeURIComponent(format)}`;
+  if (format === "json") {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `companion-${state.sessionId.slice(0, 8)}.json`;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setLog("Conversation export started (JSON download).");
+    showToast("Downloading JSON export");
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+  setLog("Conversation export opened in new tab (txt).");
+  showToast("Export opened in new tab");
 }
 
 function updateMetrics() {
@@ -724,15 +890,18 @@ async function connect(resumeSessionId = null, options = {}) {
             : "WebRTC connected. Send a prompt to perform."
         );
         startStatsPolling();
+        startHeartbeat();
         try {
           localStorage.setItem("prochar_last_session_id", state.sessionId);
         } catch (_) {}
         if (els.resumeInput) els.resumeInput.value = state.sessionId;
         if (els.clearHistoryBtn) els.clearHistoryBtn.disabled = false;
+        if (els.exportBtn) els.exportBtn.disabled = false;
       } else if (pc.connectionState === "disconnected") {
         const wasPerforming = state.performing;
         state.connected = false;
         stopStatsPolling();
+        stopHeartbeat();
         if (!state.manualDisconnect && state.sessionId && !state.reconnecting) {
           attemptAutoReconnect(wasPerforming).catch((err) => {
             console.error("Auto-reconnect failed", err);
@@ -753,6 +922,7 @@ async function connect(resumeSessionId = null, options = {}) {
           showToast("Disconnected during stream", true);
         }
         stopStatsPolling();
+        stopHeartbeat();
       }
     };
 
@@ -912,9 +1082,11 @@ function teardownConnection({ clearSession = true } = {}) {
   els.disconnectBtn.disabled = true;
   els.sendBtn.disabled = true;
   if (els.clearHistoryBtn && clearSession) els.clearHistoryBtn.disabled = true;
+  if (els.exportBtn && clearSession) els.exportBtn.disabled = true;
 
   stopStatsPolling();
   stopIceCandidatePolling();
+  stopHeartbeat();
 
   if (state.pc) {
     state.pc.getSenders().forEach((sender) => sender.track?.stop());
@@ -1283,7 +1455,22 @@ async function refreshActiveSessions() {
 }
 
 if (els.refreshSessionsBtn) {
-  els.refreshSessionsBtn.addEventListener("click", refreshActiveSessions);
+  els.refreshSessionsBtn.addEventListener("click", () => {
+    refreshActiveSessions();
+    refreshServerMetrics({ quiet: true }).catch(() => {});
+  });
+}
+if (els.refreshMetricsBtn) {
+  els.refreshMetricsBtn.addEventListener("click", () => {
+    refreshServerMetrics().catch(() => {});
+  });
+}
+if (els.exportBtn) {
+  els.exportBtn.addEventListener("click", (event) => {
+    const format = event.shiftKey ? "json" : "txt";
+    exportConversation(format);
+  });
+  els.exportBtn.title = "Export conversation (txt in new tab; Shift+click for JSON download)";
 }
 if (els.sessionsSelect) {
   els.sessionsSelect.addEventListener("change", () => {
@@ -1375,12 +1562,15 @@ async function bootstrap() {
   try {
     const res = await fetch(`${API}/health`);
     const health = await res.json();
+    state.appVersion = health.version || null;
+    updateVersionBadge(state.appVersion);
     setLog(`${health.service} v${health.version} · pipeline ready`);
   } catch (_) {
     setLog("API unreachable.");
     return;
   }
 
+  startServerMetricsPolling();
   await refreshActiveSessions();
 
   const resumed = await attemptAutoResumeOnLoad();

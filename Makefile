@@ -1,6 +1,6 @@
 # ProCharacters 2.0 - practical make targets for verification
 
-.PHONY: help install run test demo clean
+.PHONY: help install run test demo verify-all clean
 
 help:
 	@echo "ProCharacters 2.0 make targets:"
@@ -9,6 +9,7 @@ help:
 	@echo "  make test        Run pytest (python -m pytest)"
 	@echo "  make demo        Run full terminal mock demo (starts server if needed)"
 	@echo "  make demo-fast   Demo without aiortc signaling"
+	@echo "  make verify-all  Run pytest + demo smoke (PHASE 5 VERIFY OK)"
 	@echo "  make clean       Remove __pycache__ and .pytest_cache"
 
 install:
@@ -26,6 +27,9 @@ demo:
 
 demo-fast:
 	python scripts/demo.py --start-server --no-signaling
+
+verify-all:
+	python scripts/verify_all.py --start-server
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -7,6 +8,7 @@ from fastapi import FastAPI
 
 from app.core.config import Settings, get_settings
 from app.services.companion.store import SessionCompanionStore
+from app.services.observability.metrics import MetricsCollector
 from app.services.llm.pipeline import LLMStreamPipeline
 from app.services.providers.probe import ProviderProbeService
 from app.services.tts.pipeline import TTSStreamPipeline
@@ -32,7 +34,9 @@ async def _companion_prune_loop(
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = get_settings()
-    companion_store = SessionCompanionStore(settings=settings)
+    metrics = MetricsCollector()
+    started_at_monotonic = time.monotonic()
+    companion_store = SessionCompanionStore(settings=settings, metrics=metrics)
     session_manager = WebRTCSessionManager(
         settings=settings,
         companion_store=companion_store,
@@ -43,6 +47,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     provider_probe = ProviderProbeService(settings=settings)
 
     app.state.settings = settings
+    app.state.metrics = metrics
+    app.state.started_at_monotonic = started_at_monotonic
     app.state.companion_store = companion_store
     app.state.session_manager = session_manager
     app.state.llm_pipeline = llm_pipeline

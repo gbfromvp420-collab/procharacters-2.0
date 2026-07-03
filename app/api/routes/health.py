@@ -14,7 +14,7 @@ async def health_check(request: Request) -> dict:
     video_pipeline = request.app.state.video_pipeline
     provider_probe = request.app.state.provider_probe
     providers_summary = await provider_probe.get_providers_summary(timeout_seconds=2.0)
-    return {
+    body: dict = {
         "status": "ok",
         "service": settings.app_name,
         "version": settings.app_version,
@@ -32,3 +32,13 @@ async def health_check(request: Request) -> dict:
         "mock_realistic": settings.mock_realistic,
         "providers_summary": providers_summary,
     }
+
+    metrics = getattr(request.app.state, "metrics", None)
+    if metrics is not None:
+        summary = getattr(metrics, "metrics_summary", None)
+        if callable(summary):
+            body["metrics_summary"] = summary()
+        elif hasattr(metrics, "snapshot"):
+            body["metrics_summary"] = metrics.snapshot()
+
+    return body

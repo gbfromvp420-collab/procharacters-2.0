@@ -1,7 +1,7 @@
 import logging
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from app.api.sse import format_sse
@@ -10,7 +10,9 @@ from app.models.tts import TTSErrorEvent
 from app.models.video import VideoSyncErrorEvent
 from app.services.companion.store import SessionCompanionStore
 from app.services.llm.pipeline import LLMStreamPipeline
+from app.services.observability.metrics import MetricsCollector
 from app.services.tts.pipeline import TTSStreamPipeline
+from app.services.providers.gate import check_providers_ready
 from app.services.video.pipeline import VideoSyncPipeline
 
 logger = logging.getLogger(__name__)
@@ -53,6 +55,7 @@ async def _speak_event_stream(
     payload: ChatRequest,
     *,
     companion_store: SessionCompanionStore | None = None,
+    metrics: MetricsCollector | None = None,
 ) -> AsyncIterator[str]:
     llm_messages, voice, _avatar_id = _resolve_chat_context(payload, companion_store)
     user_turn = _last_user_message(payload.messages)
@@ -78,6 +81,8 @@ async def _speak_event_stream(
         ):
             if isinstance(event, StreamTokenEvent):
                 assistant_parts.append(event.content)
+                if metrics is not None:
+                    metrics.increment_tokens_streamed()
             if (
                 persist_turn
                 and isinstance(event, StreamDoneEvent)
@@ -103,6 +108,7 @@ async def _perform_event_stream(
     *,
     session_manager=None,
     companion_store: SessionCompanionStore | None = None,
+    metrics: MetricsCollector | None = None,
 ) -> AsyncIterator[str]:
     bridge = None
     initial_audio_cursor_ms = 0
@@ -143,6 +149,8 @@ async def _perform_event_stream(
         ):
             if isinstance(event, StreamTokenEvent):
                 assistant_parts.append(event.content)
+                if metrics is not None:
+                    metrics.increment_tokens_streamed()
             if bridge is not None:
                 await bridge.ingest_event(event)
             if (
@@ -169,12 +177,21 @@ async def _perform_event_stream(
     response_class=StreamingResponse,
 )
 async def perform(request: Request, payload: ChatRequest) -> StreamingResponse:
+    ok, gate_message = await check_providers_ready(request.app, ["llm", "tts", "video"])
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=gate_message,
+        )
+
     llm_pipeline: LLMStreamPipeline = request.app.state.llm_pipeline
     tts_pipeline: TTSStreamPipeline = request.app.state.tts_pipeline
     video_pipeline: VideoSyncPipeline = request.app.state.video_pipeline
 
     session_manager = request.app.state.session_manager
     companion_store: SessionCompanionStore = request.app.state.companion_store
+    metrics: MetricsCollector = request.app.state.metrics
+    metrics.increment_perform_requests()
     session_voice = None
     session_avatar = None
     if payload.session_id:
@@ -191,6 +208,7 @@ async def perform(request: Request, payload: ChatRequest) -> StreamingResponse:
             payload,
             session_manager=session_manager,
             companion_store=companion_store,
+            metrics=metrics,
         ),
         media_type="text/event-stream",
         headers={
@@ -213,9 +231,18 @@ async def perform(request: Request, payload: ChatRequest) -> StreamingResponse:
     response_class=StreamingResponse,
 )
 async def speak(request: Request, payload: ChatRequest) -> StreamingResponse:
+    ok, gate_message = await check_providers_ready(request.app, ["llm", "tts"])
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=gate_message,
+        )
+
     llm_pipeline: LLMStreamPipeline = request.app.state.llm_pipeline
     tts_pipeline: TTSStreamPipeline = request.app.state.tts_pipeline
     companion_store: SessionCompanionStore = request.app.state.companion_store
+    metrics: MetricsCollector = request.app.state.metrics
+    metrics.increment_speak_requests()
     session_voice = None
     if payload.session_id:
         companion_store.touch(payload.session_id)
@@ -227,6 +254,7 @@ async def speak(request: Request, payload: ChatRequest) -> StreamingResponse:
             tts_pipeline,
             payload,
             companion_store=companion_store,
+            metrics=metrics,
         ),
         media_type="text/event-stream",
         headers={

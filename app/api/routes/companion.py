@@ -1,15 +1,20 @@
-from fastapi import APIRouter, HTTPException, Request, status
+import json
+
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi.responses import PlainTextResponse, Response
 
 from app.models.companion import (
     CompanionCatalogResponse,
     CompanionConfig,
     CompanionConfigUpdate,
+    CompanionHeartbeatResponse,
     CompanionSessionSummary,
     ConversationHistoryResponse,
 )
 from app.services.companion.catalog import (
     get_avatar_catalog,
     get_prompt_presets,
+    get_relationship_modes,
     get_voice_catalog,
 )
 from app.services.companion.store import SessionCompanionStore
@@ -24,7 +29,7 @@ def _store(request: Request) -> SessionCompanionStore:
 @router.get(
     "/catalog",
     response_model=CompanionCatalogResponse,
-    summary="List available avatars, voices, and prompt presets",
+    summary="List available avatars, voices, prompt presets, and relationship modes",
 )
 async def get_companion_catalog(request: Request) -> CompanionCatalogResponse:
     settings = request.app.state.settings
@@ -32,6 +37,7 @@ async def get_companion_catalog(request: Request) -> CompanionCatalogResponse:
         avatars=get_avatar_catalog(settings),
         voices=get_voice_catalog(settings),
         prompt_presets=get_prompt_presets(),
+        relationship_modes=get_relationship_modes(settings),
     )
 
 
@@ -79,12 +85,22 @@ async def update_companion_config(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Unknown voice. Allowed: {settings.companion_voices}",
         )
+    if (
+        payload.relationship_mode is not None
+        and payload.relationship_mode
+        and payload.relationship_mode not in settings.companion_relationship_modes
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unknown relationship_mode. Allowed: {settings.companion_relationship_modes}",
+        )
 
     cfg = store.set_config(
         session_id,
         avatar_id=payload.avatar_id,
         voice=payload.voice,
         system_prompt=payload.system_prompt,
+        relationship_mode=payload.relationship_mode,
     )
     return CompanionConfig(**cfg)
 
@@ -103,6 +119,77 @@ async def get_conversation_history(
     return ConversationHistoryResponse(
         messages=messages,
         turn_count=len(messages) // 2,
+    )
+
+
+@router.get(
+    "/{session_id}/export",
+    summary="Download conversation history as JSON or plain text",
+)
+async def export_conversation(
+    request: Request,
+    session_id: str,
+    format: str = Query(default="json", pattern="^(json|txt)$"),
+) -> Response:
+    store = _store(request)
+    cfg = store.get_config(session_id)
+    messages = store.get_messages(session_id)
+
+    if format == "txt":
+        lines: list[str] = [
+            f"Session: {session_id}",
+            f"Avatar: {cfg['avatar_id']}",
+            f"Voice: {cfg['voice']}",
+            f"Relationship mode: {cfg['relationship_mode'] or '(none)'}",
+            f"Turns: {len(messages) // 2}",
+            "",
+        ]
+        for message in messages:
+            role = message.role.upper()
+            lines.append(f"[{role}] {message.content}")
+            lines.append("")
+        body = "\n".join(lines).rstrip() + "\n"
+        return PlainTextResponse(
+            content=body,
+            headers={
+                "Content-Disposition": f'attachment; filename="companion-{session_id}.txt"'
+            },
+        )
+
+    payload = {
+        "session_id": session_id,
+        "config": cfg,
+        "messages": [message.model_dump() for message in messages],
+        "turn_count": len(messages) // 2,
+    }
+    return Response(
+        content=json.dumps(payload, indent=2) + "\n",
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="companion-{session_id}.json"'
+        },
+    )
+
+
+@router.post(
+    "/{session_id}/heartbeat",
+    response_model=CompanionHeartbeatResponse,
+    summary="Touch session activity and return current status",
+)
+async def companion_heartbeat(
+    request: Request,
+    session_id: str,
+) -> CompanionHeartbeatResponse:
+    store = _store(request)
+    store.touch(session_id)
+    cfg = store.get_config(session_id)
+    return CompanionHeartbeatResponse(
+        session_id=session_id,
+        status="active",
+        turn_count=cfg["turn_count"],
+        last_active_at=cfg["last_active_at"],
+        avatar_id=cfg["avatar_id"],
+        relationship_mode=cfg["relationship_mode"],
     )
 
 

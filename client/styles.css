@@ -105,10 +105,31 @@ body {
   opacity: 0.7;
 }
 
+.brand-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .brand h1 {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
+}
+
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: rgba(108, 140, 255, 0.1);
+  border: 1px solid rgba(108, 140, 255, 0.28);
+  box-shadow: 0 0 14px rgba(108, 140, 255, 0.12);
 }
 
 .brand p {
@@ -352,11 +373,39 @@ textarea:focus {
   border-color: transparent;
 }
 
-.log {
+.log-footer {
   padding: 0 16px 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.log {
   color: var(--muted);
   font-size: 0.78rem;
   min-height: 1.2em;
+}
+
+.server-metrics-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.server-metrics-peek {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-metrics-refresh {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  font-size: 0.68rem;
 }
 
 @media (max-width: 900px) {
@@ -513,6 +562,41 @@ textarea:focus {
 .preset-chip.active {
   background: rgba(108, 140, 255, 0.22);
   border-color: rgba(108, 140, 255, 0.5);
+}
+
+.config-row-modes {
+  align-items: start;
+}
+
+.relationship-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mode-chip {
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mode-chip:hover:not(:disabled) {
+  background: rgba(108, 140, 255, 0.1);
+  border-color: rgba(108, 140, 255, 0.3);
+}
+
+.mode-chip.selected {
+  background: rgba(108, 140, 255, 0.18);
+  border-color: rgba(108, 140, 255, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(108, 140, 255, 0.35),
+    0 0 16px rgba(108, 140, 255, 0.28);
+  color: #f0f4ff;
 }
 
 .visually-hidden {

@@ -8,7 +8,12 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.main import create_app
-from app.services.companion.catalog import get_avatar_catalog, get_prompt_presets, get_voice_catalog
+from app.services.companion.catalog import (
+    get_avatar_catalog,
+    get_prompt_presets,
+    get_relationship_modes,
+    get_voice_catalog,
+)
 from app.services.providers.probe import ProviderProbeService
 
 
@@ -93,6 +98,11 @@ def test_catalog_returns_expected_avatars(mock_settings: Settings) -> None:
     assert preset_ids == ["friendly", "professional_coach", "storyteller"]
     assert all(item.prompt for item in presets)
 
+    modes = get_relationship_modes(mock_settings)
+    mode_ids = [item.id for item in modes]
+    assert mode_ids == ["friendly", "flirtatious", "romantic", "deep"]
+    assert modes[3].label == "Deep"
+
 
 @pytest.fixture
 def api_client() -> TestClient:
@@ -126,6 +136,10 @@ def test_companion_catalog_api(api_client: TestClient) -> None:
 
     assert len(body["prompt_presets"]) == 3
     assert body["prompt_presets"][0]["id"] == "friendly"
+
+    mode_ids = [item["id"] for item in body["relationship_modes"]]
+    assert mode_ids == ["friendly", "flirtatious", "romantic", "deep"]
+    assert all(item["system_prompt_overlay"] for item in body["relationship_modes"])
 
 
 def test_health_includes_providers_summary(api_client: TestClient) -> None:

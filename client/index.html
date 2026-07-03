@@ -10,7 +10,10 @@
     <div class="app">
       <header class="header">
         <div class="brand">
-          <h1>ProCharacters Cloud</h1>
+          <div class="brand-title-row">
+            <h1>ProCharacters Cloud</h1>
+            <span id="versionBadge" class="version-badge" title="API version">v—</span>
+          </div>
           <p>Live AI companion · WebRTC + streaming pipeline</p>
         </div>
         <div class="header-status">
@@ -70,6 +73,10 @@
                 <option value="bright">Bright</option>
               </select>
             </div>
+            <div class="config-row config-row-modes">
+              <label class="config-label">Mode</label>
+              <div id="relationshipModes" class="relationship-modes" role="radiogroup" aria-label="Relationship mode"></div>
+            </div>
             <details class="config-details" open>
               <summary>System prompt (optional)</summary>
               <div id="promptPresets" class="prompt-presets" aria-label="Prompt presets"></div>
@@ -88,6 +95,7 @@
             <strong>Conversation</strong>
             <div class="chat-header-actions">
               <span id="memoryIndicator" class="memory-indicator" title="Server-side conversation memory">memory on</span>
+              <button id="exportBtn" class="btn-ghost" disabled title="Export conversation (txt in new tab, JSON download)">Export</button>
               <button id="clearHistoryBtn" class="btn-ghost" disabled title="Clear server history &amp; transcript">Clear history</button>
             </div>
           </div>
@@ -112,7 +120,13 @@
             ></textarea>
             <button id="sendBtn" class="btn-secondary" disabled>Send</button>
           </div>
-          <div id="log" class="log"></div>
+          <div class="log-footer">
+            <div id="log" class="log"></div>
+            <div class="server-metrics-row">
+              <span id="serverMetricsPeek" class="server-metrics-peek" title="Server perform count and uptime">server —</span>
+              <button id="refreshMetricsBtn" class="btn-ghost btn-metrics-refresh" type="button" title="Refresh server metrics">↻</button>
+            </div>
+          </div>
         </section>
       </main>
       <div id="toast" class="toast hidden" aria-live="polite"></div>

@@ -23,16 +23,28 @@ class PromptPreset(BaseModel):
     prompt: str
 
 
+class RelationshipModeInfo(BaseModel):
+    id: str
+    label: str
+    description: str
+    system_prompt_overlay: str
+
+
 class CompanionCatalogResponse(BaseModel):
     avatars: list[AvatarInfo]
     voices: list[VoiceInfo]
     prompt_presets: list[PromptPreset]
+    relationship_modes: list[RelationshipModeInfo] = Field(default_factory=list)
 
 
 class CompanionConfig(BaseModel):
     avatar_id: str
     voice: str
     system_prompt: str
+    relationship_mode: str = Field(
+        default="",
+        description="Optional intimacy/personality mode id (e.g. friendly, romantic).",
+    )
     turn_count: int = Field(
         default=0,
         description="Number of completed user/assistant turns in stored history.",
@@ -54,6 +66,16 @@ class CompanionConfigUpdate(BaseModel):
     avatar_id: str | None = None
     voice: str | None = None
     system_prompt: str | None = None
+    relationship_mode: str | None = None
+
+
+class CompanionHeartbeatResponse(BaseModel):
+    session_id: str
+    status: str = "active"
+    turn_count: int
+    last_active_at: str
+    avatar_id: str
+    relationship_mode: str = ""
 
 
 class ConversationHistoryResponse(BaseModel):

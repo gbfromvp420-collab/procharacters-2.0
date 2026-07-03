@@ -5,7 +5,9 @@ from datetime import datetime, timedelta, timezone
 
 from app.core.config import Settings
 from app.models.llm import ChatMessage
+from app.services.companion.catalog import get_relationship_mode_overlay
 from app.services.companion.persistence import CompanionPersistence
+from app.services.observability.metrics import MetricsCollector
 
 
 def _utc_now_iso() -> str:
@@ -28,6 +30,7 @@ class _SessionState:
     avatar_id: str = "default"
     voice: str = "default"
     system_prompt: str = ""
+    relationship_mode: str = ""
     created_at: str = ""
     last_active_at: str = ""
 
@@ -35,10 +38,16 @@ class _SessionState:
 class SessionCompanionStore:
     """Companion state keyed by WebRTC / chat session_id, optionally persisted to disk."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        metrics: MetricsCollector | None = None,
+    ) -> None:
         from app.core.config import get_settings
 
         self._settings = settings or get_settings()
+        self._metrics = metrics
         self._sessions: dict[str, _SessionState] = {}
         self._persistence: CompanionPersistence | None = None
         if self._settings.companion_persist_enabled:
@@ -76,6 +85,7 @@ class SessionCompanionStore:
                 avatar_id=data.get("avatar_id", self._default_avatar_id()),
                 voice=data.get("voice", self._default_voice()),
                 system_prompt=data.get("system_prompt", self._default_system_prompt()),
+                relationship_mode=data.get("relationship_mode", ""),
                 created_at=created_at,
                 last_active_at=data.get("last_active_at") or created_at,
             )
@@ -86,6 +96,7 @@ class SessionCompanionStore:
                 "avatar_id": state.avatar_id,
                 "voice": state.voice,
                 "system_prompt": state.system_prompt,
+                "relationship_mode": state.relationship_mode,
                 "messages": [message.model_dump() for message in state.messages],
                 "created_at": state.created_at,
                 "last_active_at": state.last_active_at,
@@ -109,6 +120,7 @@ class SessionCompanionStore:
                 avatar_id=self._default_avatar_id(),
                 voice=self._default_voice(),
                 system_prompt=self._default_system_prompt(),
+                relationship_mode="",
                 created_at=now,
                 last_active_at=now,
             )
@@ -127,6 +139,7 @@ class SessionCompanionStore:
             "avatar_id": state.avatar_id,
             "voice": state.voice,
             "system_prompt": state.system_prompt,
+            "relationship_mode": state.relationship_mode,
             "turn_count": len(state.messages) // 2,
             "created_at": state.created_at,
             "last_active_at": state.last_active_at,
@@ -139,6 +152,7 @@ class SessionCompanionStore:
         avatar_id: str | None = None,
         voice: str | None = None,
         system_prompt: str | None = None,
+        relationship_mode: str | None = None,
     ) -> dict[str, str | int]:
         state = self.get_or_create(session_id)
         if avatar_id is not None:
@@ -147,6 +161,8 @@ class SessionCompanionStore:
             state.voice = voice
         if system_prompt is not None:
             state.system_prompt = system_prompt
+        if relationship_mode is not None:
+            state.relationship_mode = relationship_mode
         state.last_active_at = _utc_now_iso()
         self._persist()
         return self.get_config(session_id)
@@ -166,6 +182,8 @@ class SessionCompanionStore:
         self._trim_history(state)
         state.last_active_at = _utc_now_iso()
         self._persist()
+        if self._metrics is not None:
+            self._metrics.increment_companion_turns_saved()
 
     def clear_history(self, session_id: str) -> None:
         state = self.get_or_create(session_id)
@@ -218,8 +236,15 @@ class SessionCompanionStore:
     ) -> list[ChatMessage]:
         """Assemble system prompt + stored history + new user/assistant messages."""
         state = self.get_or_create(session_id)
+        system_content = state.system_prompt.strip()
+        overlay = get_relationship_mode_overlay(self._settings, state.relationship_mode)
+        if overlay:
+            if system_content:
+                system_content = f"{system_content}\n\n{overlay}"
+            else:
+                system_content = overlay
         messages: list[ChatMessage] = [
-            ChatMessage(role="system", content=state.system_prompt),
+            ChatMessage(role="system", content=system_content),
         ]
         if use_memory:
             messages.extend(state.messages)

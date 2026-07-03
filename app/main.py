@@ -7,8 +7,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
+from app.core.auth import APIKeyMiddleware
 from app.core.config import get_settings
 from app.core.lifecycle import lifespan
+from app.core.rate_limit import RateLimitMiddleware
 
 CLIENT_DIR = Path(__file__).resolve().parent.parent / "client"
 
@@ -35,6 +37,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(APIKeyMiddleware)
+    app.add_middleware(RateLimitMiddleware)
 
     app.include_router(api_router, prefix="/api/v1")
 

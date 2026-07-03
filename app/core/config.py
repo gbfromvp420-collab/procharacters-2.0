@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "ProCharacters Cloud"
-    app_version: str = "0.2.0"
+    app_version: str = "0.3.0"
     debug: bool = False
 
     host: str = "0.0.0.0"
@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     video_timeout_seconds: float = 120.0
     video_mock_frame_delay_ms: int = 10
 
+    # Provider readiness gate (blocks /chat/perform and /chat/speak when remote providers fail probe)
+    provider_gate_enabled: bool = True
+    provider_gate_allow_degraded: bool = True
+
     # Demo / mock realism toggle (affects all three mock clients)
     # When true (default), mocks use variable-length chunks, jittered delays,
     # multi-sentence responses, and spread frame "work" to better simulate real providers.
@@ -77,6 +81,20 @@ class Settings(BaseSettings):
     companion_persist_enabled: bool = True
     companion_persist_path: str = "data/companion_sessions.json"
     companion_session_ttl_hours: int = 72
+    companion_relationship_modes: list[str] = [
+        "friendly",
+        "flirtatious",
+        "romantic",
+        "deep",
+    ]
+
+    # Optional API key auth for /api/v1/* (GET /health and GET /metrics exempt)
+    api_key_enabled: bool = False
+    api_key: str = ""
+
+    # In-memory per-IP rate limiting for POST /chat/perform and POST /webrtc/session
+    rate_limit_enabled: bool = True
+    rate_limit_perform_per_minute: int = 30
 
 
 @lru_cache
