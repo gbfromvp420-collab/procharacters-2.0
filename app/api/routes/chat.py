@@ -178,6 +178,7 @@ async def perform(request: Request, payload: ChatRequest) -> StreamingResponse:
     session_voice = None
     session_avatar = None
     if payload.session_id:
+        companion_store.touch(payload.session_id)
         cfg = companion_store.get_config(payload.session_id)
         session_voice = cfg["voice"]
         session_avatar = cfg["avatar_id"]
@@ -217,6 +218,7 @@ async def speak(request: Request, payload: ChatRequest) -> StreamingResponse:
     companion_store: SessionCompanionStore = request.app.state.companion_store
     session_voice = None
     if payload.session_id:
+        companion_store.touch(payload.session_id)
         session_voice = companion_store.get_config(payload.session_id)["voice"]
 
     return StreamingResponse(

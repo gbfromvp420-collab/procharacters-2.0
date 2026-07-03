@@ -16,6 +16,14 @@ const state = {
   manualDisconnect: false,
   reconnecting: false,
   turnCount: 0,
+  catalog: null,
+  selectedAvatarId: null,
+  webrtcSessions: [],
+  companionSessions: [],
+  providerStatus: null,
+  providerStatusInterval: null,
+  bootstrapped: false,
+  historyHydratedFor: null,
 };
 
 let _fullIdVisible = false;
@@ -46,6 +54,31 @@ const els = {
   systemPromptInput: document.getElementById("systemPromptInput"),
   clearHistoryBtn: document.getElementById("clearHistoryBtn"),
   memoryIndicator: document.getElementById("memoryIndicator"),
+  avatarGallery: document.getElementById("avatarGallery"),
+  promptPresets: document.getElementById("promptPresets"),
+  providerStatus: document.getElementById("providerStatus"),
+  persistedSessionsIndicator: document.getElementById("persistedSessionsIndicator"),
+};
+
+const FALLBACK_CATALOG = {
+  avatars: [
+    { id: "default", label: "Default", emoji: "🙂", accent_color: "#6c8cff" },
+    { id: "professional", label: "Professional", emoji: "💼", accent_color: "#4a9eff" },
+    { id: "casual", label: "Casual", emoji: "😊", accent_color: "#3dd68c" },
+  ],
+  voices: [
+    { id: "default", label: "Default" },
+    { id: "warm", label: "Warm" },
+    { id: "bright", label: "Bright" },
+  ],
+  prompt_presets: [
+    {
+      id: "friendly",
+      label: "Friendly",
+      prompt:
+        "You are a friendly, helpful AI video companion. Keep replies concise and conversational for spoken dialogue.",
+    },
+  ],
 };
 
 const DEFAULT_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -75,14 +108,311 @@ function getCompanionConfigPayload() {
 
 function applyCompanionConfig(config) {
   if (!config) return;
-  if (els.avatarSelect && config.avatar_id) els.avatarSelect.value = config.avatar_id;
+  if (config.avatar_id) selectAvatar(config.avatar_id, { patch: false });
   if (els.voiceSelect && config.voice) els.voiceSelect.value = config.voice;
   if (els.systemPromptInput && config.system_prompt != null) {
     els.systemPromptInput.value = config.system_prompt;
+    syncPromptPresetHighlight();
   }
   if (typeof config.turn_count === "number") {
     state.turnCount = config.turn_count;
     updateMemoryIndicator();
+  }
+}
+
+function selectAvatar(avatarId, options = {}) {
+  const { patch = true } = options;
+  if (!avatarId) return;
+  state.selectedAvatarId = avatarId;
+  if (els.avatarSelect) els.avatarSelect.value = avatarId;
+  if (els.avatarGallery) {
+    els.avatarGallery.querySelectorAll(".avatar-card").forEach((card) => {
+      const isSelected = card.dataset.avatarId === avatarId;
+      card.classList.toggle("selected", isSelected);
+      card.setAttribute("aria-selected", isSelected ? "true" : "false");
+      if (isSelected) {
+        const accent = card.dataset.accentColor || "#6c8cff";
+        card.style.borderColor = accent;
+        card.style.boxShadow = `0 0 0 1px ${accent}55`;
+      } else {
+        card.style.borderColor = "";
+        card.style.boxShadow = "";
+      }
+    });
+  }
+  if (patch && state.connected && state.sessionId) {
+    patchCompanionConfig(state.sessionId);
+  }
+}
+
+function renderAvatarGallery() {
+  if (!els.avatarGallery) return;
+  const avatars = state.catalog?.avatars || FALLBACK_CATALOG.avatars;
+  els.avatarGallery.innerHTML = "";
+  avatars.forEach((avatar) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "avatar-card";
+    card.dataset.avatarId = avatar.id;
+    card.dataset.accentColor = avatar.accent_color || "#6c8cff";
+    card.setAttribute("role", "option");
+    card.title = avatar.description || avatar.label;
+
+    const emoji = document.createElement("span");
+    emoji.className = "avatar-card-emoji";
+    emoji.textContent = avatar.emoji || "🙂";
+
+    const label = document.createElement("span");
+    label.className = "avatar-card-label";
+    label.textContent = avatar.label || avatar.id;
+
+    card.appendChild(emoji);
+    card.appendChild(label);
+    card.addEventListener("click", () => selectAvatar(avatar.id));
+    els.avatarGallery.appendChild(card);
+  });
+
+  if (els.avatarSelect) {
+    const current = state.selectedAvatarId || els.avatarSelect.value || avatars[0]?.id;
+    els.avatarSelect.innerHTML = "";
+    avatars.forEach((avatar) => {
+      const opt = document.createElement("option");
+      opt.value = avatar.id;
+      opt.textContent = avatar.label || avatar.id;
+      els.avatarSelect.appendChild(opt);
+    });
+    selectAvatar(current, { patch: false });
+  }
+}
+
+function renderVoiceSelect() {
+  if (!els.voiceSelect) return;
+  const voices = state.catalog?.voices || FALLBACK_CATALOG.voices;
+  const previous = els.voiceSelect.value;
+  els.voiceSelect.innerHTML = "";
+  voices.forEach((voice) => {
+    const opt = document.createElement("option");
+    opt.value = voice.id;
+    opt.textContent = voice.label || voice.id;
+    if (voice.description) opt.title = voice.description;
+    els.voiceSelect.appendChild(opt);
+  });
+  if (previous && voices.some((v) => v.id === previous)) {
+    els.voiceSelect.value = previous;
+  } else if (voices[0]) {
+    els.voiceSelect.value = voices[0].id;
+  }
+}
+
+function syncPromptPresetHighlight() {
+  if (!els.promptPresets || !els.systemPromptInput) return;
+  const current = (els.systemPromptInput.value || "").trim();
+  els.promptPresets.querySelectorAll(".preset-chip").forEach((chip) => {
+    const prompt = chip.dataset.prompt || "";
+    chip.classList.toggle("active", prompt.trim() === current && current.length > 0);
+  });
+}
+
+function renderPromptPresets() {
+  if (!els.promptPresets) return;
+  const presets = state.catalog?.prompt_presets || FALLBACK_CATALOG.prompt_presets;
+  els.promptPresets.innerHTML = "";
+  presets.forEach((preset) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "preset-chip";
+    chip.textContent = preset.label || preset.id;
+    chip.dataset.prompt = preset.prompt || "";
+    chip.title = "Apply preset to system prompt";
+    chip.addEventListener("click", () => {
+      if (!els.systemPromptInput) return;
+      els.systemPromptInput.value = preset.prompt || "";
+      syncPromptPresetHighlight();
+      if (state.connected && state.sessionId) {
+        patchCompanionConfig(state.sessionId);
+      }
+      setLog(`System prompt preset applied: ${preset.label || preset.id}`);
+    });
+    els.promptPresets.appendChild(chip);
+  });
+  syncPromptPresetHighlight();
+}
+
+async function loadCatalog() {
+  try {
+    const res = await fetch(`${API}/companion/catalog`);
+    if (!res.ok) throw new Error(`catalog ${res.status}`);
+    state.catalog = await res.json();
+  } catch (e) {
+    console.warn("Catalog fetch failed, using fallback", e);
+    state.catalog = FALLBACK_CATALOG;
+  }
+  renderAvatarGallery();
+  renderVoiceSelect();
+  renderPromptPresets();
+}
+
+function providerStatusClass(status) {
+  if (status === "ok") return "ok";
+  if (status === "degraded") return "degraded";
+  if (status === "error") return "error";
+  return "unknown";
+}
+
+function renderProviderStatus(data) {
+  if (!els.providerStatus || !data) return;
+  const items = [
+    { key: "llm", label: "LLM" },
+    { key: "tts", label: "TTS" },
+    { key: "video", label: "Vid" },
+  ];
+  const tooltipLines = [];
+  els.providerStatus.innerHTML = "";
+  items.forEach((item, index) => {
+    if (index > 0) {
+      const sep = document.createElement("span");
+      sep.className = "provider-sep";
+      sep.textContent = "·";
+      els.providerStatus.appendChild(sep);
+    }
+    const row = document.createElement("span");
+    row.className = "provider-item";
+    row.textContent = item.label;
+    const dot = document.createElement("span");
+    const info = data[item.key] || {};
+    dot.className = `provider-dot ${providerStatusClass(info.status)}`;
+    row.appendChild(dot);
+    els.providerStatus.appendChild(row);
+    tooltipLines.push(
+      `${item.label}: ${info.status || "unknown"} (${info.provider || "—"})${info.detail ? ` — ${info.detail}` : ""}`
+    );
+  });
+  els.providerStatus.title = tooltipLines.join("\n");
+}
+
+async function refreshProviderStatus() {
+  try {
+    const res = await fetch(`${API}/providers/status`);
+    if (!res.ok) throw new Error(`providers/status ${res.status}`);
+    state.providerStatus = await res.json();
+    renderProviderStatus(state.providerStatus);
+    return;
+  } catch (e) {
+    console.warn("Provider status fetch failed, falling back to /health", e);
+  }
+  try {
+    const res = await fetch(`${API}/health`);
+    if (!res.ok) return;
+    const health = await res.json();
+    const derived = {
+      llm: { status: "ok", provider: health.llm_provider, detail: health.llm_model },
+      tts: { status: "ok", provider: health.tts_provider, detail: health.tts_voice },
+      video: { status: "ok", provider: health.video_provider, detail: health.video_avatar_id },
+    };
+    state.providerStatus = derived;
+    renderProviderStatus(derived);
+  } catch (_) {}
+}
+
+function startProviderStatusPolling() {
+  if (state.providerStatusInterval) return;
+  state.providerStatusInterval = setInterval(() => {
+    refreshProviderStatus().catch(() => {});
+  }, 60000);
+}
+
+async function fetchCompanionSessions() {
+  const res = await fetch(`${API}/companion/sessions`);
+  if (!res.ok) throw new Error("Failed to list companion sessions");
+  const data = await res.json();
+  return Array.isArray(data) ? data : data.sessions || [];
+}
+
+function updatePersistedSessionsIndicator(count) {
+  if (!els.persistedSessionsIndicator) return;
+  const label = count === 1 ? "1 saved" : `${count} saved`;
+  els.persistedSessionsIndicator.textContent = label;
+  els.persistedSessionsIndicator.title =
+    count > 0
+      ? `${count} persisted companion session${count === 1 ? "" : "s"} (config + history)`
+      : "No persisted companion sessions yet";
+}
+
+function createHistoryBubble(role, text) {
+  const bubble = document.createElement("div");
+  bubble.className = `bubble ${role}`;
+  if (role === "assistant") {
+    const content = document.createElement("span");
+    content.className = "bubble-content";
+    content.textContent = text;
+    bubble.appendChild(content);
+    bubble.dataset.ended = "true";
+  } else {
+    bubble.textContent = text;
+  }
+  return bubble;
+}
+
+async function hydrateTranscriptFromHistory(sessionId) {
+  if (!sessionId || state.historyHydratedFor === sessionId) return;
+  try {
+    const res = await fetch(`${API}/companion/${sessionId}/history`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const messages = (data.messages || []).filter(
+      (m) => m && (m.role === "user" || m.role === "assistant") && m.content
+    );
+    if (!messages.length) return;
+
+    const systemBubble = els.transcript.querySelector(".bubble.system");
+    const fragment = document.createDocumentFragment();
+    messages.forEach((msg) => {
+      fragment.appendChild(createHistoryBubble(msg.role, msg.content));
+    });
+
+    if (systemBubble) {
+      els.transcript.insertBefore(fragment, systemBubble);
+    } else {
+      els.transcript.appendChild(fragment);
+    }
+    els.transcript.scrollTop = els.transcript.scrollHeight;
+
+    if (typeof data.turn_count === "number") {
+      state.turnCount = data.turn_count;
+      updateMemoryIndicator();
+    }
+    state.historyHydratedFor = sessionId;
+    setLog(`Restored ${messages.length} message(s) from session history.`);
+  } catch (e) {
+    console.warn("History hydration failed", e);
+  }
+}
+
+function sessionExistsForResume(sessionId) {
+  if (!sessionId) return false;
+  const inWebRTC = (state.webrtcSessions || []).includes(sessionId);
+  const inCompanion = (state.companionSessions || []).some(
+    (s) => (typeof s === "string" ? s : s.id) === sessionId
+  );
+  return inWebRTC || inCompanion;
+}
+
+async function attemptAutoResumeOnLoad() {
+  let last = null;
+  try {
+    last = localStorage.getItem("prochar_last_session_id");
+  } catch (_) {}
+  if (!last || !sessionExistsForResume(last)) return false;
+
+  try {
+    await connect(last, { autoResumeOnLoad: true });
+    if (state.connected) {
+      await hydrateTranscriptFromHistory(last);
+    }
+    return state.connected;
+  } catch (e) {
+    console.warn("Auto-resume on load failed", e);
+    return false;
   }
 }
 
@@ -232,7 +562,7 @@ function setupSessionBadgeCopy(sessionId) {
 }
 
 const DEFAULT_SYSTEM_BUBBLE =
-  "Connect to start. Badge click copies ID (toggles full view). Use ↻ for active sessions + Resume (works after reload).";
+  "Connect to start — or reload to auto-resume your last session. Pick an avatar, voice, and prompt preset below.";
 
 function resetTranscript() {
   els.transcript.innerHTML = "";
@@ -324,12 +654,15 @@ async function fetchAndAddServerCandidatesOnce() {
 }
 
 async function connect(resumeSessionId = null, options = {}) {
-  const { autoReconnect = false } = options;
+  const { autoReconnect = false, autoResumeOnLoad = false } = options;
   if (state.connected || (state.reconnecting && !autoReconnect)) return;
 
   const isResume = !!resumeSessionId;
   if (!autoReconnect) state.manualDisconnect = false;
   state.connectionMode = isResume ? "resumed" : "new";
+  if (autoResumeOnLoad) {
+    showToast("Restoring session…");
+  }
   setStatus(
     autoReconnect ? "Reconnecting…" : isResume ? "Resuming…" : "Connecting…",
     false,
@@ -481,6 +814,9 @@ async function connect(resumeSessionId = null, options = {}) {
     if (isResume) {
       const config = await fetchCompanionConfig(state.sessionId);
       if (config) applyCompanionConfig(config);
+      if (!autoResumeOnLoad) {
+        await hydrateTranscriptFromHistory(state.sessionId);
+      }
     }
     await patchCompanionConfig(state.sessionId);
 
@@ -595,6 +931,7 @@ function teardownConnection({ clearSession = true } = {}) {
     els.sessionLabel.onclick = null;
     _fullIdVisible = false;
     state.turnCount = 0;
+    state.historyHydratedFor = null;
     updateMemoryIndicator();
   }
   state.connected = false;
@@ -851,46 +1188,97 @@ async function fetchActiveSessions() {
   return await res.json();
 }
 
+function formatSessionOptionLabel(id, { active = false, turns = null } = {}) {
+  const short = `${id.slice(0, 8)}…${id.slice(-4)}`;
+  const tags = [];
+  if (active) tags.push("live");
+  if (typeof turns === "number" && turns > 0) tags.push(`${turns}t`);
+  return tags.length ? `${short} (${tags.join(", ")})` : short;
+}
+
 async function refreshActiveSessions() {
+  let webrtcData = { sessions: [], count: 0, details: [] };
+  let companionData = [];
   try {
-    const data = await fetchActiveSessions();
-    const list = (data.sessions || []).map((s) => s.slice(0, 8)).join(", ") || "none";
-    let detailStr = "";
-    if (Array.isArray(data.details) && data.details.length) {
-      detailStr = " · states:" + data.details.slice(0, 2).map((d) => `${String(d.session_id || "").slice(0,4)}:${d.connection_state || d.ice_connection_state || "?"}`).join(",");
-    }
-    setLog(`Active sessions (${data.count || 0}): ${list}${detailStr}`);
-
-    // populate dropdown for improved resume UX
-    if (els.sessionsSelect) {
-      els.sessionsSelect.innerHTML = '<option value="">— active sessions —</option>';
-      (data.sessions || []).forEach((id) => {
-        const opt = document.createElement("option");
-        opt.value = id;
-        opt.textContent = `${id.slice(0, 8)}…${id.slice(-4)}`;
-        els.sessionsSelect.appendChild(opt);
-      });
-      els.sessionsSelect.disabled = !data.sessions || data.sessions.length === 0;
-    }
-
-    // auto-suggest: prefer stored last, else first
-    const lastStored = (() => {
-      try { return localStorage.getItem("prochar_last_session_id"); } catch (_) { return null; }
-    })();
-    if (els.resumeInput) {
-      if (lastStored && (data.sessions || []).includes(lastStored)) {
-        els.resumeInput.value = lastStored;
-        setLog(`Active sessions (${data.count || 0}): ${list} · Last session active — click Resume to continue after reload.`);
-      } else if (!els.resumeInput.value && data.sessions && data.sessions.length) {
-        els.resumeInput.value = data.sessions[0];
-      }
-    }
-    if (els.resumeBtn) {
-      els.resumeBtn.disabled = !(els.resumeInput && els.resumeInput.value.trim());
-    }
+    [webrtcData, companionData] = await Promise.all([
+      fetchActiveSessions(),
+      fetchCompanionSessions().catch(() => []),
+    ]);
   } catch (e) {
     setLog("Could not fetch active sessions.");
     if (els.sessionsSelect) els.sessionsSelect.disabled = true;
+    return;
+  }
+
+  state.webrtcSessions = webrtcData.sessions || [];
+  state.companionSessions = companionData;
+  updatePersistedSessionsIndicator(companionData.length);
+
+  const activeSet = new Set(state.webrtcSessions);
+  const companionById = new Map();
+  companionData.forEach((item) => {
+    const id = typeof item === "string" ? item : item.id;
+    if (id) companionById.set(id, item);
+  });
+
+  const mergedIds = [...state.webrtcSessions];
+  companionData.forEach((item) => {
+    const id = typeof item === "string" ? item : item.id;
+    if (id && !mergedIds.includes(id)) mergedIds.push(id);
+  });
+
+  const list = state.webrtcSessions.map((s) => s.slice(0, 8)).join(", ") || "none";
+  let detailStr = "";
+  if (Array.isArray(webrtcData.details) && webrtcData.details.length) {
+    detailStr =
+      " · states:" +
+      webrtcData.details
+        .slice(0, 2)
+        .map(
+          (d) =>
+            `${String(d.session_id || "").slice(0, 4)}:${d.connection_state || d.ice_connection_state || "?"}`
+        )
+        .join(",");
+  }
+  const persistedNote =
+    companionData.length > 0 ? ` · ${companionData.length} persisted` : "";
+  setLog(`Active sessions (${webrtcData.count || 0}): ${list}${detailStr}${persistedNote}`);
+
+  if (els.sessionsSelect) {
+    els.sessionsSelect.innerHTML = '<option value="">— sessions —</option>';
+    mergedIds.forEach((id) => {
+      const opt = document.createElement("option");
+      opt.value = id;
+      const summary = companionById.get(id);
+      opt.textContent = formatSessionOptionLabel(id, {
+        active: activeSet.has(id),
+        turns: summary?.turn_count,
+      });
+      els.sessionsSelect.appendChild(opt);
+    });
+    els.sessionsSelect.disabled = mergedIds.length === 0;
+  }
+
+  const lastStored = (() => {
+    try {
+      return localStorage.getItem("prochar_last_session_id");
+    } catch (_) {
+      return null;
+    }
+  })();
+  if (els.resumeInput) {
+    if (lastStored && sessionExistsForResume(lastStored)) {
+      els.resumeInput.value = lastStored;
+      setLog(
+        `Sessions ready — last session resumable (${lastStored.slice(0, 8)}). ` +
+          `${webrtcData.count || 0} live, ${companionData.length} persisted.`
+      );
+    } else if (!els.resumeInput.value && mergedIds.length) {
+      els.resumeInput.value = mergedIds[0];
+    }
+  }
+  if (els.resumeBtn) {
+    els.resumeBtn.disabled = !(els.resumeInput && els.resumeInput.value.trim());
   }
 }
 
@@ -911,15 +1299,17 @@ if (els.resumeBtn) {
   els.resumeBtn.addEventListener("click", () => {
     const id = (els.resumeInput?.value || "").trim();
     if (id) {
-      // client-side quick check using list (best effort; connect also handles not-found)
-      fetchActiveSessions()
-        .then((d) => {
-          if (d.sessions && !d.sessions.includes(id)) {
-            showToast("Session not in active list (may be gone). Will attempt graceful fallback.", true);
+      refreshActiveSessions()
+        .then(() => {
+          if (!sessionExistsForResume(id)) {
+            showToast(
+              "Session not in live or persisted lists — attempting graceful fallback.",
+              true
+            );
           }
-          connect(id);
+          return connect(id);
         })
-        .catch(() => connect(id)); // proceed anyway, connect detects via returned id
+        .catch(() => connect(id));
     }
   });
   if (els.resumeInput) {
@@ -960,28 +1350,49 @@ updateMetrics();
 updateMemoryIndicator();
 wireExamplePrompts();
 
-fetch(`${API}/health`)
-  .then((res) => res.json())
-  .then((health) => {
-    setLog(`${health.service} v${health.version} · mock pipeline ready`);
-    // populate active sessions + auto-suggest last for resume after reload
-    refreshActiveSessions().then(() => {
-      const last = (() => {
-        try { return localStorage.getItem("prochar_last_session_id"); } catch (_) { return null; }
-      })();
+if (els.voiceSelect) {
+  els.voiceSelect.addEventListener("change", () => {
+    if (state.connected && state.sessionId) patchCompanionConfig(state.sessionId);
+  });
+}
+if (els.systemPromptInput) {
+  els.systemPromptInput.addEventListener("input", () => {
+    syncPromptPresetHighlight();
+  });
+  els.systemPromptInput.addEventListener("change", () => {
+    if (state.connected && state.sessionId) patchCompanionConfig(state.sessionId);
+  });
+}
+
+async function bootstrap() {
+  if (state.bootstrapped) return;
+  state.bootstrapped = true;
+
+  await loadCatalog();
+  await refreshProviderStatus();
+  startProviderStatusPolling();
+
+  try {
+    const res = await fetch(`${API}/health`);
+    const health = await res.json();
+    setLog(`${health.service} v${health.version} · pipeline ready`);
+  } catch (_) {
+    setLog("API unreachable.");
+    return;
+  }
+
+  await refreshActiveSessions();
+
+  const resumed = await attemptAutoResumeOnLoad();
+  if (!resumed) {
+    try {
+      const last = localStorage.getItem("prochar_last_session_id");
       if (last && els.resumeInput && !els.resumeInput.value) {
         els.resumeInput.value = last;
         if (els.resumeBtn) els.resumeBtn.disabled = false;
       }
-    });
-  })
-  .catch(() => setLog("API unreachable."));
-
-// Bonus: allow re-sending last prompt quickly via console or future UI; also prefill if stored
-try {
-  const last = localStorage.getItem("prochar_last_session_id");
-  if (last && els.resumeInput && !els.resumeInput.value) {
-    els.resumeInput.value = last;
-    if (els.resumeBtn) els.resumeBtn.disabled = false;
+    } catch (_) {}
   }
-} catch (_) {}
+}
+
+bootstrap().catch((e) => console.error("Bootstrap failed", e));

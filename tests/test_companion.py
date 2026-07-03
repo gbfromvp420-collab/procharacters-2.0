@@ -11,6 +11,7 @@ from app.services.webrtc.session_manager import WebRTCSessionManager
 @pytest.fixture
 def store() -> SessionCompanionStore:
     settings = Settings(
+        companion_persist_enabled=False,
         companion_system_prompt="You are a test companion.",
         companion_avatars=["default", "professional", "casual"],
         companion_voices=["default", "warm", "bright"],
@@ -175,8 +176,8 @@ def test_multi_turn_message_building_accumulates_context(store: SessionCompanion
 
 
 @pytest.mark.asyncio
-async def test_webrtc_close_removes_companion_state(store: SessionCompanionStore):
-    settings = Settings()
+async def test_webrtc_close_keeps_companion_state(store: SessionCompanionStore):
+    settings = Settings(companion_persist_enabled=False)
     mgr = WebRTCSessionManager(settings=settings, companion_store=store)
     session = mgr.create_session()
     sid = session.session_id
@@ -190,5 +191,5 @@ async def test_webrtc_close_removes_companion_state(store: SessionCompanionStore
 
     closed = await mgr.close_session(sid)
     assert closed is True
-    assert store.remove(sid) is False
-    assert store.get_messages(sid) == []
+    assert len(store.get_messages(sid)) == 2
+    assert store.get_config(sid)["turn_count"] == 1

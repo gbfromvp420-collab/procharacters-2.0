@@ -206,8 +206,6 @@ class WebRTCSessionManager:
 
         await session.media_bridge.close(reason="session_closed")
         await session.peer_connection.close()
-        if self._companion_store is not None:
-            self._companion_store.remove(session_id)
         logger.debug("Closed WebRTC session %s", session_id)
         return True
 

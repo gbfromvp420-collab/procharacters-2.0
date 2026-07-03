@@ -13,9 +13,22 @@
           <h1>ProCharacters Cloud</h1>
           <p>Live AI companion · WebRTC + streaming pipeline</p>
         </div>
-        <div class="status-pill">
-          <span id="statusDot" class="status-dot"></span>
-          <span id="statusText">Idle</span>
+        <div class="header-status">
+          <div
+            id="providerStatus"
+            class="provider-status-pill"
+            title="Provider status loading…"
+          >
+            <span class="provider-item">LLM<span class="provider-dot unknown"></span></span>
+            <span class="provider-sep">·</span>
+            <span class="provider-item">TTS<span class="provider-dot unknown"></span></span>
+            <span class="provider-sep">·</span>
+            <span class="provider-item">Vid<span class="provider-dot unknown"></span></span>
+          </div>
+          <div class="status-pill">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="statusText">Idle</span>
+          </div>
         </div>
       </header>
 
@@ -36,17 +49,17 @@
             <input id="resumeInput" placeholder="session id (paste after reload to resume)" />
             <button id="resumeBtn" class="btn-secondary" disabled title="Resume an active server session">Resume</button>
             <button id="refreshSessionsBtn" class="btn-secondary" title="Refresh &amp; show active sessions">↻</button>
-            <select id="sessionsSelect" class="sessions-select" title="Select active session to resume" disabled>
+            <select id="sessionsSelect" class="sessions-select" title="Select active or saved session to resume" disabled>
               <option value="">— sessions —</option>
             </select>
+            <span id="persistedSessionsIndicator" class="sessions-indicator" title="Persisted companion sessions">— saved</span>
           </div>
           <div class="companion-config">
-            <div class="config-row">
-              <label class="config-label" for="avatarSelect">Avatar</label>
-              <select id="avatarSelect" class="config-select" title="Avatar style">
+            <div class="config-row config-row-gallery">
+              <label class="config-label">Avatar</label>
+              <div id="avatarGallery" class="avatar-gallery" role="listbox" aria-label="Choose avatar"></div>
+              <select id="avatarSelect" class="config-select visually-hidden" aria-hidden="true" tabindex="-1">
                 <option value="default">Default</option>
-                <option value="professional">Professional</option>
-                <option value="casual">Casual</option>
               </select>
             </div>
             <div class="config-row">
@@ -57,8 +70,9 @@
                 <option value="bright">Bright</option>
               </select>
             </div>
-            <details class="config-details">
+            <details class="config-details" open>
               <summary>System prompt (optional)</summary>
+              <div id="promptPresets" class="prompt-presets" aria-label="Prompt presets"></div>
               <textarea
                 id="systemPromptInput"
                 class="config-textarea"

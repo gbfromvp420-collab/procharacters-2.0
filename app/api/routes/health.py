@@ -12,6 +12,8 @@ async def health_check(request: Request) -> dict:
     llm_pipeline = request.app.state.llm_pipeline
     tts_pipeline = request.app.state.tts_pipeline
     video_pipeline = request.app.state.video_pipeline
+    provider_probe = request.app.state.provider_probe
+    providers_summary = await provider_probe.get_providers_summary(timeout_seconds=2.0)
     return {
         "status": "ok",
         "service": settings.app_name,
@@ -28,4 +30,5 @@ async def health_check(request: Request) -> dict:
         "video_avatar_id": video_pipeline.avatar_id,
         "video_fps": video_pipeline.fps,
         "mock_realistic": settings.mock_realistic,
+        "providers_summary": providers_summary,
     }

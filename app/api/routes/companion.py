@@ -1,9 +1,16 @@
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.models.companion import (
+    CompanionCatalogResponse,
     CompanionConfig,
     CompanionConfigUpdate,
+    CompanionSessionSummary,
     ConversationHistoryResponse,
+)
+from app.services.companion.catalog import (
+    get_avatar_catalog,
+    get_prompt_presets,
+    get_voice_catalog,
 )
 from app.services.companion.store import SessionCompanionStore
 
@@ -12,6 +19,30 @@ router = APIRouter(prefix="/companion", tags=["companion"])
 
 def _store(request: Request) -> SessionCompanionStore:
     return request.app.state.companion_store
+
+
+@router.get(
+    "/catalog",
+    response_model=CompanionCatalogResponse,
+    summary="List available avatars, voices, and prompt presets",
+)
+async def get_companion_catalog(request: Request) -> CompanionCatalogResponse:
+    settings = request.app.state.settings
+    return CompanionCatalogResponse(
+        avatars=get_avatar_catalog(settings),
+        voices=get_voice_catalog(settings),
+        prompt_presets=get_prompt_presets(),
+    )
+
+
+@router.get(
+    "/sessions",
+    response_model=list[CompanionSessionSummary],
+    summary="List persisted companion sessions (resume-after-restart UX)",
+)
+async def list_companion_sessions(request: Request) -> list[CompanionSessionSummary]:
+    store = _store(request)
+    return [CompanionSessionSummary(**item) for item in store.list_persisted_sessions()]
 
 
 @router.get(
@@ -83,3 +114,17 @@ async def get_conversation_history(
 async def clear_conversation_history(request: Request, session_id: str) -> None:
     store = _store(request)
     store.clear_history(session_id)
+
+
+@router.delete(
+    "/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Fully remove companion session (config + history)",
+)
+async def delete_companion_session(request: Request, session_id: str) -> None:
+    store = _store(request)
+    if not store.remove(session_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown companion session: {session_id}",
+        )
