@@ -34,6 +34,7 @@ def lane2_settings(tmp_path: Path) -> Settings:
         provider_gate_enabled=False,
         companion_persist_enabled=True,
         companion_persist_path=str(tmp_path / "companion_sessions.json"),
+        kgc_policies_path=str(tmp_path / "kgc_policies.json"),
         api_key_enabled=False,
         rate_limit_enabled=False,
     )

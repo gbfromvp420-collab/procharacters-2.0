@@ -31,6 +31,7 @@ def integration_settings(tmp_path: Path) -> Settings:
         provider_gate_enabled=True,
         companion_persist_enabled=True,
         companion_persist_path=str(tmp_path / "companion_sessions.json"),
+        kgc_policies_path=str(tmp_path / "kgc_policies.json"),
         api_key_enabled=False,
         api_key="",
         rate_limit_enabled=False,

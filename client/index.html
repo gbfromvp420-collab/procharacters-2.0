@@ -141,6 +141,34 @@
               <div class="kgc-panel-body">
                 <div id="kgcDashboard" class="kgc-dashboard" aria-live="polite">Expand to load fleet dashboard…</div>
                 <button id="kgcPruneBtn" class="btn-ghost kgc-prune-btn" type="button" title="Remove stale WebRTC and companion sessions">Prune stale</button>
+                <div id="kgcSovereign" class="kgc-sovereign">
+                  <span class="kgc-sovereign-heading">Sovereign</span>
+                  <div class="kgc-sovereign-actions">
+                    <button id="sovereignCloneBtn" class="btn-ghost sovereign-clone-btn" type="button" disabled title="Clone active companion session to a new id">Clone session</button>
+                    <button id="sovereignBundleBtn" class="btn-ghost" type="button" disabled title="Download full session bundle as JSON">Download bundle</button>
+                    <button id="sovereignFleetBackupBtn" class="btn-ghost" type="button" title="Download fleet backup (sessions, policies, audit)">Fleet backup</button>
+                  </div>
+                  <div class="kgc-sovereign-import">
+                    <label class="sovereign-import-label" for="sovereignImportInput">Import session</label>
+                    <input id="sovereignImportInput" class="sovereign-import-input" type="file" accept=".json,application/json" title="Upload a companion session bundle JSON" />
+                  </div>
+                  <div class="kgc-sovereign-policies">
+                    <span class="kgc-sovereign-heading">Global policies</span>
+                    <label class="sovereign-policy-label" for="sovereignPolicyMode">Default relationship mode</label>
+                    <select id="sovereignPolicyMode" class="config-select sovereign-policy-select" title="Default mode for new companion sessions">
+                      <option value="">(server default)</option>
+                    </select>
+                    <label class="sovereign-policy-label" for="sovereignPolicyPrompt">System prompt</label>
+                    <textarea id="sovereignPolicyPrompt" class="config-textarea sovereign-policy-prompt" rows="2" placeholder="Global default system prompt for new sessions…"></textarea>
+                    <button id="sovereignPolicySaveBtn" class="btn-ghost" type="button" title="Save global KGC policies">Save policies</button>
+                  </div>
+                  <div class="kgc-audit-section">
+                    <span class="kgc-sovereign-heading">Audit log</span>
+                    <ul id="sovereignAuditLog" class="sovereign-audit-list" aria-live="polite">
+                      <li class="sovereign-audit-empty">Expand KGC Command to load audit log…</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </details>
             <details id="workforcePanel" class="workforce-panel">

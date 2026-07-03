@@ -221,6 +221,7 @@ def perform_client(
         api_key_enabled=False,
         rate_limit_enabled=False,
         companion_persist_path=str(tmp_path / "companion_sessions.json"),
+        kgc_policies_path=str(tmp_path / "kgc_policies.json"),
     )
     get_settings.cache_clear()
     monkeypatch.setattr("app.core.config.get_settings", lambda: settings)

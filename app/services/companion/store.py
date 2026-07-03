@@ -1,7 +1,11 @@
 """Per-session companion state: conversation history and avatar/voice config."""
 
+from __future__ import annotations
+
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
 
 from app.core.config import Settings
 from app.models.llm import ChatMessage
@@ -15,6 +19,9 @@ from app.services.companion.milestones import (
 from app.services.companion.persistence import CompanionPersistence
 from app.services.companion.summarizer import summarize_turns
 from app.services.observability.metrics import MetricsCollector
+
+if TYPE_CHECKING:
+    from app.services.kgc.policies import KGCPolicies
 
 _ROMANTIC_BOND_MODES = frozenset({"romantic", "flirtatious"})
 _SUMMARIZE_BATCH_TURNS = 6
@@ -56,11 +63,13 @@ class SessionCompanionStore:
         settings: Settings | None = None,
         *,
         metrics: MetricsCollector | None = None,
+        kgc_policies: KGCPolicies | None = None,
     ) -> None:
         from app.core.config import get_settings
 
         self._settings = settings or get_settings()
         self._metrics = metrics
+        self._kgc_policies = kgc_policies
         self._sessions: dict[str, _SessionState] = {}
         self._persistence: CompanionPersistence | None = None
         if self._settings.companion_persist_enabled:
@@ -76,7 +85,15 @@ class SessionCompanionStore:
         return voices[0] if voices else self._settings.tts_voice
 
     def _default_system_prompt(self) -> str:
-        return self._settings.companion_system_prompt
+        fallback = self._settings.companion_system_prompt
+        if self._kgc_policies is not None:
+            return self._kgc_policies.get_default_system_prompt(fallback)
+        return fallback
+
+    def _default_relationship_mode(self) -> str:
+        if self._kgc_policies is not None:
+            return self._kgc_policies.get_default_relationship_mode()
+        return ""
 
     def _load_from_disk(self) -> None:
         if self._persistence is None:
@@ -155,12 +172,40 @@ class SessionCompanionStore:
                 avatar_id=self._default_avatar_id(),
                 voice=self._default_voice(),
                 system_prompt=self._default_system_prompt(),
-                relationship_mode="",
+                relationship_mode=self._default_relationship_mode(),
                 created_at=now,
                 last_active_at=now,
             )
             self._persist()
         return self._sessions[session_id]
+
+    def export_all_sessions(self) -> dict[str, dict]:
+        """Return full serialized companion sessions for fleet backup."""
+        return self._serialize_sessions()
+
+    def merge_sessions(self, sessions: dict[str, dict]) -> int:
+        """Merge sessions by session_id; backup entries replace existing ones."""
+        merged = 0
+        for session_id, data in sessions.items():
+            if not isinstance(session_id, str) or not isinstance(data, dict):
+                continue
+            bundle = {**data, "session_id": session_id}
+            self._sessions[session_id] = self._state_from_bundle_data(bundle)
+            merged += 1
+        if merged:
+            self._persist()
+        return merged
+
+    def import_session(self, session_id: str, data: dict) -> bool:
+        """Import a single companion session payload."""
+        if not isinstance(data, dict):
+            return False
+        bundle = {**data, "session_id": session_id}
+        self._sessions[session_id] = self._state_from_bundle_data(bundle)
+        self._persist()
+        if self._metrics is not None:
+            self._metrics.increment_sessions_imported()
+        return True
 
     def touch(self, session_id: str) -> None:
         """Update last_active_at for a session (creates session if missing)."""
@@ -374,3 +419,141 @@ class SessionCompanionStore:
         max_messages = max_turns * 2
         if len(state.messages) > max_messages:
             state.messages = state.messages[-max_messages:]
+
+    def _parse_messages(self, messages_raw: object) -> list[ChatMessage]:
+        messages: list[ChatMessage] = []
+        if not isinstance(messages_raw, list):
+            return messages
+        for item in messages_raw:
+            if isinstance(item, dict) and "role" in item and "content" in item:
+                messages.append(ChatMessage(**item))
+            elif isinstance(item, ChatMessage):
+                messages.append(item)
+        return messages
+
+    def _parse_bond_score(self, bond_raw: object) -> int:
+        try:
+            return max(0, min(100, int(bond_raw)))
+        except (TypeError, ValueError):
+            return 0
+
+    def _parse_milestones(self, milestones_raw: object, bond_score: int) -> list[str]:
+        milestones_unlocked: list[str] = []
+        if isinstance(milestones_raw, list):
+            milestones_unlocked = [str(item) for item in milestones_raw if item]
+        if not milestones_unlocked and bond_score > 0:
+            milestones_unlocked = [
+                milestone.id for milestone in get_unlocked_milestones(bond_score)
+            ]
+        return milestones_unlocked
+
+    def _state_from_bundle_data(self, data: dict) -> _SessionState:
+        config = data.get("config")
+        if isinstance(config, dict):
+            avatar_id = config.get("avatar_id", self._default_avatar_id())
+            voice = config.get("voice", self._default_voice())
+            system_prompt = config.get("system_prompt", self._default_system_prompt())
+            relationship_mode = config.get("relationship_mode", "")
+            bond_score = self._parse_bond_score(config.get("bond_score", 0))
+            memory_summary = config.get("memory_summary", "")
+            created_at = config.get("created_at") or data.get("created_at")
+            last_active_at = config.get("last_active_at") or data.get("last_active_at")
+            milestones_raw = data.get("milestones_unlocked", config.get("milestones_unlocked"))
+        else:
+            avatar_id = data.get("avatar_id", self._default_avatar_id())
+            voice = data.get("voice", self._default_voice())
+            system_prompt = data.get("system_prompt", self._default_system_prompt())
+            relationship_mode = data.get("relationship_mode", "")
+            bond_score = self._parse_bond_score(data.get("bond_score", 0))
+            memory_summary = data.get("memory_summary", "")
+            created_at = data.get("created_at")
+            last_active_at = data.get("last_active_at")
+            milestones_raw = data.get("milestones_unlocked")
+
+        if not isinstance(memory_summary, str):
+            memory_summary = ""
+        now = _utc_now_iso()
+        created_at = created_at if isinstance(created_at, str) and created_at else now
+        last_active_at = (
+            last_active_at if isinstance(last_active_at, str) and last_active_at else created_at
+        )
+        milestones_unlocked = self._parse_milestones(milestones_raw, bond_score)
+        messages = self._parse_messages(data.get("messages", []))
+
+        return _SessionState(
+            messages=messages,
+            avatar_id=str(avatar_id),
+            voice=str(voice),
+            system_prompt=str(system_prompt),
+            relationship_mode=str(relationship_mode or ""),
+            bond_score=bond_score,
+            milestones_unlocked=milestones_unlocked,
+            memory_summary=memory_summary,
+            created_at=created_at,
+            last_active_at=last_active_at,
+        )
+
+    def _copy_state(self, source: _SessionState) -> _SessionState:
+        now = _utc_now_iso()
+        return _SessionState(
+            messages=[ChatMessage(**message.model_dump()) for message in source.messages],
+            avatar_id=source.avatar_id,
+            voice=source.voice,
+            system_prompt=source.system_prompt,
+            relationship_mode=source.relationship_mode,
+            bond_score=source.bond_score,
+            milestones_unlocked=list(source.milestones_unlocked),
+            memory_summary=source.memory_summary,
+            created_at=now,
+            last_active_at=now,
+        )
+
+    def export_bundle(self, session_id: str) -> dict:
+        """Export full session state for portability (clone/import)."""
+        state = self.get_or_create(session_id)
+        return {
+            "session_id": session_id,
+            "avatar_id": state.avatar_id,
+            "voice": state.voice,
+            "system_prompt": state.system_prompt,
+            "relationship_mode": state.relationship_mode,
+            "bond_score": state.bond_score,
+            "milestones_unlocked": list(state.milestones_unlocked),
+            "memory_summary": state.memory_summary,
+            "messages": [message.model_dump() for message in state.messages],
+            "turn_count": len(state.messages) // 2,
+            "created_at": state.created_at,
+            "last_active_at": state.last_active_at,
+        }
+
+    def clone_session(
+        self,
+        session_id: str,
+        target_session_id: str | None = None,
+    ) -> str:
+        """Clone an existing session into a new session_id (companion-only resume)."""
+        self.get_or_create(session_id)
+        if target_session_id:
+            if target_session_id in self._sessions:
+                raise ValueError(f"Target session already exists: {target_session_id}")
+            new_id = target_session_id
+        else:
+            new_id = str(uuid.uuid4())
+        self._sessions[new_id] = self._copy_state(self._sessions[session_id])
+        self._persist()
+        if self._metrics is not None:
+            self._metrics.increment_sessions_cloned()
+        return new_id
+
+    def import_bundle(self, data: dict) -> str:
+        """Import a session bundle; optional session_id used when not colliding."""
+        requested_id = data.get("session_id")
+        if isinstance(requested_id, str) and requested_id and requested_id not in self._sessions:
+            new_id = requested_id
+        else:
+            new_id = str(uuid.uuid4())
+        self._sessions[new_id] = self._state_from_bundle_data(data)
+        self._persist()
+        if self._metrics is not None:
+            self._metrics.increment_sessions_imported()
+        return new_id

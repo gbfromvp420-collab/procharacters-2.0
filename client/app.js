@@ -83,6 +83,14 @@ const els = {
   kgcPanel: document.getElementById("kgcPanel"),
   kgcDashboard: document.getElementById("kgcDashboard"),
   kgcPruneBtn: document.getElementById("kgcPruneBtn"),
+  sovereignCloneBtn: document.getElementById("sovereignCloneBtn"),
+  sovereignBundleBtn: document.getElementById("sovereignBundleBtn"),
+  sovereignFleetBackupBtn: document.getElementById("sovereignFleetBackupBtn"),
+  sovereignImportInput: document.getElementById("sovereignImportInput"),
+  sovereignPolicyMode: document.getElementById("sovereignPolicyMode"),
+  sovereignPolicyPrompt: document.getElementById("sovereignPolicyPrompt"),
+  sovereignPolicySaveBtn: document.getElementById("sovereignPolicySaveBtn"),
+  sovereignAuditLog: document.getElementById("sovereignAuditLog"),
   ceoCrownBadge: document.getElementById("ceoCrownBadge"),
   milestoneChips: document.getElementById("milestoneChips"),
 };
@@ -327,6 +335,7 @@ async function enterSseMode(reason = "manual") {
   if (els.exportBtn) els.exportBtn.disabled = false;
   if (els.connectBtn) els.connectBtn.disabled = false;
   updateSendButtonState();
+  updateSovereignControls();
 
   await patchCompanionConfig(state.sessionId);
   const config = await fetchCompanionConfig(state.sessionId);
@@ -900,6 +909,293 @@ function stopKgcPolling() {
   }
 }
 
+function isSovereignSessionActive() {
+  return !!state.sessionId && (state.connected || state.sseMode);
+}
+
+function updateSovereignControls() {
+  const active = isSovereignSessionActive();
+  if (els.sovereignCloneBtn) els.sovereignCloneBtn.disabled = !active;
+  if (els.sovereignBundleBtn) els.sovereignBundleBtn.disabled = !active;
+}
+
+function triggerJsonDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function formatAuditTimestamp(timestamp) {
+  if (!timestamp) return "—";
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) return String(timestamp);
+  return parsed.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function renderSovereignAuditLog(entries) {
+  if (!els.sovereignAuditLog) return;
+  els.sovereignAuditLog.innerHTML = "";
+  if (!Array.isArray(entries) || entries.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "sovereign-audit-empty";
+    empty.textContent = "No audit entries yet.";
+    els.sovereignAuditLog.appendChild(empty);
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "sovereign-audit-item";
+
+    const time = document.createElement("span");
+    time.className = "sovereign-audit-time";
+    time.textContent = formatAuditTimestamp(entry.timestamp);
+
+    const action = document.createElement("span");
+    action.className = "sovereign-audit-action";
+    action.textContent = entry.action || "action";
+
+    const detail = document.createElement("span");
+    detail.className = "sovereign-audit-detail";
+    detail.textContent = entry.detail || "";
+
+    const result = document.createElement("span");
+    const resultValue = String(entry.result || "ok").toLowerCase();
+    result.className = `sovereign-audit-result ${resultValue === "ok" ? "ok" : "error"}`;
+    result.textContent = resultValue;
+
+    item.appendChild(time);
+    item.appendChild(action);
+    item.appendChild(detail);
+    item.appendChild(result);
+    els.sovereignAuditLog.appendChild(item);
+  });
+}
+
+function populateSovereignPolicyModes() {
+  if (!els.sovereignPolicyMode) return;
+  const modes = state.catalog?.relationship_modes || FALLBACK_CATALOG.relationship_modes;
+  const current = els.sovereignPolicyMode.value;
+  els.sovereignPolicyMode.innerHTML = '<option value="">(server default)</option>';
+  modes.forEach((mode) => {
+    const option = document.createElement("option");
+    option.value = mode.id;
+    option.textContent = mode.label || mode.id;
+    els.sovereignPolicyMode.appendChild(option);
+  });
+  if (current) els.sovereignPolicyMode.value = current;
+}
+
+async function loadSovereignPolicies() {
+  if (!els.sovereignPolicyMode && !els.sovereignPolicyPrompt) return null;
+  try {
+    const res = await fetch(`${API}/kgc/policies`);
+    if (!res.ok) throw new Error(`policies ${res.status}`);
+    const data = await res.json();
+    populateSovereignPolicyModes();
+    if (els.sovereignPolicyMode) {
+      els.sovereignPolicyMode.value = data.default_relationship_mode || "";
+    }
+    if (els.sovereignPolicyPrompt) {
+      els.sovereignPolicyPrompt.value = data.default_system_prompt || "";
+    }
+    return data;
+  } catch (e) {
+    console.warn("KGC policies fetch failed", e);
+    return null;
+  }
+}
+
+async function saveSovereignPolicies() {
+  if (!els.sovereignPolicySaveBtn) return;
+  els.sovereignPolicySaveBtn.disabled = true;
+  try {
+    const payload = {
+      default_relationship_mode: els.sovereignPolicyMode?.value ?? "",
+      default_system_prompt: els.sovereignPolicyPrompt?.value ?? "",
+    };
+    const res = await fetch(`${API}/kgc/policies`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || data.message || `policies save failed (${res.status})`);
+    }
+    showToast("Global policies saved");
+    setLog("KGC policies updated.");
+    await loadSovereignAuditLog({ quiet: true });
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || "Could not save policies", true);
+    setLog(e.message || "KGC policies save failed.");
+  } finally {
+    if (els.sovereignPolicySaveBtn) els.sovereignPolicySaveBtn.disabled = false;
+  }
+}
+
+async function loadSovereignAuditLog({ quiet = false } = {}) {
+  if (!els.sovereignAuditLog) return null;
+  try {
+    const res = await fetch(`${API}/kgc/audit?limit=20`);
+    if (!res.ok) throw new Error(`audit ${res.status}`);
+    const data = await res.json();
+    const entries = data.entries || [];
+    renderSovereignAuditLog(entries);
+    if (!quiet) setLog(`KGC audit — ${entries.length} recent action(s)`);
+    return data;
+  } catch (e) {
+    console.warn("KGC audit fetch failed", e);
+    renderSovereignAuditLog([]);
+    if (!quiet) setLog("KGC audit log unavailable.");
+    return null;
+  }
+}
+
+async function loadSovereignPanel() {
+  await Promise.all([
+    loadSovereignPolicies(),
+    loadSovereignAuditLog({ quiet: true }),
+  ]);
+  updateSovereignControls();
+}
+
+async function cloneSovereignSession() {
+  if (!isSovereignSessionActive()) {
+    showToast("Connect to clone the active session", true);
+    return;
+  }
+  if (els.sovereignCloneBtn) els.sovereignCloneBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/companion/${state.sessionId}/clone`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || data.message || `clone failed (${res.status})`);
+    }
+    const newId = data.session_id;
+    if (!newId) throw new Error("Clone response missing session_id");
+    const shortId = `${newId.slice(0, 8)}…`;
+    showToast(`Cloned session → ${shortId}`);
+    setLog(`Sovereign clone — new session ${newId}`);
+    await loadSovereignAuditLog({ quiet: true });
+    await refreshActiveSessions();
+    if (window.confirm(`Clone created: ${newId}\n\nResume cloned session now?`)) {
+      if (els.resumeInput) els.resumeInput.value = newId;
+      if (els.resumeBtn) els.resumeBtn.disabled = false;
+      await connect(newId);
+    }
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || "Session clone failed", true);
+    setLog(e.message || "Session clone failed.");
+  } finally {
+    updateSovereignControls();
+  }
+}
+
+async function downloadSovereignBundle() {
+  if (!state.sessionId) {
+    showToast("Connect to download session bundle", true);
+    return;
+  }
+  if (els.sovereignBundleBtn) els.sovereignBundleBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/companion/${state.sessionId}/bundle`);
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) {
+      throw new Error(
+        (data && (data.detail || data.message)) || `bundle download failed (${res.status})`
+      );
+    }
+    const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], {
+      type: "application/json",
+    });
+    triggerJsonDownload(blob, `companion-bundle-${state.sessionId.slice(0, 8)}.json`);
+    showToast("Session bundle downloaded");
+    setLog(`Sovereign bundle — ${state.sessionId.slice(0, 8)}…`);
+    await loadSovereignAuditLog({ quiet: true });
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || "Bundle download failed", true);
+    setLog(e.message || "Bundle download failed.");
+  } finally {
+    updateSovereignControls();
+  }
+}
+
+async function importSovereignSession(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    const res = await fetch(`${API}/companion/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || data.message || `import failed (${res.status})`);
+    }
+    const importedId = data.session_id;
+    if (!importedId) throw new Error("Import response missing session_id");
+    showToast(`Imported session ${importedId.slice(0, 8)}…`);
+    setLog(`Sovereign import — session ${importedId}`);
+    await refreshActiveSessions();
+    await loadSovereignAuditLog({ quiet: true });
+    if (window.confirm(`Imported session: ${importedId}\n\nResume imported session now?`)) {
+      if (els.resumeInput) els.resumeInput.value = importedId;
+      if (els.resumeBtn) els.resumeBtn.disabled = false;
+      await connect(importedId);
+    }
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || "Session import failed", true);
+    setLog(e.message || "Session import failed.");
+  } finally {
+    if (els.sovereignImportInput) els.sovereignImportInput.value = "";
+  }
+}
+
+async function downloadSovereignFleetBackup() {
+  if (els.sovereignFleetBackupBtn) els.sovereignFleetBackupBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/kgc/fleet/backup`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || data.message || `fleet backup failed (${res.status})`);
+    }
+    const text = await res.text();
+    const blob = new Blob([text.endsWith("\n") ? text : `${text}\n`], {
+      type: "application/json",
+    });
+    const stamp = new Date().toISOString().slice(0, 10);
+    triggerJsonDownload(blob, `kgc-fleet-backup-${stamp}.json`);
+    showToast("Fleet backup downloaded");
+    setLog("Sovereign fleet backup downloaded.");
+    await loadSovereignAuditLog({ quiet: true });
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || "Fleet backup failed", true);
+    setLog(e.message || "Fleet backup failed.");
+  } finally {
+    if (els.sovereignFleetBackupBtn) els.sovereignFleetBackupBtn.disabled = false;
+  }
+}
+
 function formatUptime(seconds) {
   const total = Math.max(0, Math.round(Number(seconds) || 0));
   if (total < 60) return `${total}s`;
@@ -1279,6 +1575,7 @@ async function connect(resumeSessionId = null, options = {}) {
         if (els.resumeInput) els.resumeInput.value = state.sessionId;
         if (els.clearHistoryBtn) els.clearHistoryBtn.disabled = false;
         if (els.exportBtn) els.exportBtn.disabled = false;
+        updateSovereignControls();
       } else if (pc.connectionState === "disconnected") {
         const wasPerforming = state.performing;
         state.connected = false;
@@ -1506,6 +1803,7 @@ function teardownConnection({ clearSession = true } = {}) {
   if (clearSession) {
     els.connectionLabel.textContent = "idle";
   }
+  updateSovereignControls();
 }
 
 async function disconnect() {
@@ -1774,6 +2072,7 @@ if (els.kgcPanel) {
   els.kgcPanel.addEventListener("toggle", () => {
     if (els.kgcPanel.open) {
       startKgcPolling();
+      loadSovereignPanel().catch(() => {});
     } else {
       stopKgcPolling();
     }
@@ -1782,6 +2081,32 @@ if (els.kgcPanel) {
 if (els.kgcPruneBtn) {
   els.kgcPruneBtn.addEventListener("click", () => {
     pruneKgcFleet().catch(() => {});
+  });
+}
+if (els.sovereignCloneBtn) {
+  els.sovereignCloneBtn.addEventListener("click", () => {
+    cloneSovereignSession().catch(() => {});
+  });
+}
+if (els.sovereignBundleBtn) {
+  els.sovereignBundleBtn.addEventListener("click", () => {
+    downloadSovereignBundle().catch(() => {});
+  });
+}
+if (els.sovereignFleetBackupBtn) {
+  els.sovereignFleetBackupBtn.addEventListener("click", () => {
+    downloadSovereignFleetBackup().catch(() => {});
+  });
+}
+if (els.sovereignImportInput) {
+  els.sovereignImportInput.addEventListener("change", () => {
+    const file = els.sovereignImportInput.files?.[0];
+    if (file) importSovereignSession(file).catch(() => {});
+  });
+}
+if (els.sovereignPolicySaveBtn) {
+  els.sovereignPolicySaveBtn.addEventListener("click", () => {
+    saveSovereignPolicies().catch(() => {});
   });
 }
 
@@ -1968,6 +2293,7 @@ updateMetrics();
 updateMemoryIndicator();
 updateBondMeter(0);
 updateSendButtonState();
+updateSovereignControls();
 wireExamplePrompts();
 
 if (els.voiceSelect) {

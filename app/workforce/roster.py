@@ -18,9 +18,13 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
     {
         "id": "king-grok",
         "codename": "King Grok",
-        "skills": ["SyncOrchestrator_Core", "KGC_Command_Authority"],
+        "skills": [
+            "SyncOrchestrator_Core",
+            "KGC_Command_Authority",
+            "Sovereign_Empire_Authority",
+        ],
         "tier": "ceo",
-        "phase_earned": 7,
+        "phase_earned": 8,
         "award_lb_gold": 10.0,
     },
     {
@@ -117,6 +121,14 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
         "skills": ["ExecutiveDashboard_Fleet"],
         "tier": "team",
         "phase_earned": 7,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "sovereignforge-backup-sub-01",
+        "codename": "SovereignForge_Backup_Sub_01",
+        "skills": ["FleetBackup_AuditLog"],
+        "tier": "team",
+        "phase_earned": 8,
         "award_lb_gold": 1.0,
     },
 ]

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "ProCharacters Cloud"
-    app_version: str = "0.5.0"
+    app_version: str = "0.6.0"
     debug: bool = False
 
     host: str = "0.0.0.0"
@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     companion_max_history_turns: int = 20
     companion_persist_enabled: bool = True
     companion_persist_path: str = "data/companion_sessions.json"
+    kgc_policies_path: str = "data/kgc_policies.json"
     companion_session_ttl_hours: int = 72
     companion_relationship_modes: list[str] = [
         "friendly",

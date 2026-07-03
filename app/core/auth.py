@@ -14,6 +14,7 @@ _API_PREFIX = "/api/v1"
 _EXEMPT_API_ROUTES = {
     ("GET", f"{_API_PREFIX}/health"),
     ("GET", f"{_API_PREFIX}/metrics"),
+    ("GET", f"{_API_PREFIX}/metrics/prometheus"),
 }
 _DOCS_PATHS = {"/docs", "/openapi.json", "/redoc"}
 

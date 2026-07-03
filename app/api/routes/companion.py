@@ -6,12 +6,16 @@ from fastapi.responses import PlainTextResponse, Response
 from app.models.companion import (
     BondMilestoneInfo,
     BondMilestonesCatalogResponse,
+    CloneSessionResponse,
+    CompanionBundleResponse,
     CompanionCatalogResponse,
     CompanionConfig,
     CompanionConfigUpdate,
     CompanionHeartbeatResponse,
     CompanionSessionSummary,
     ConversationHistoryResponse,
+    ImportSessionRequest,
+    ImportSessionResponse,
 )
 from app.services.companion.milestones import BOND_MILESTONES
 from app.services.companion.catalog import (
@@ -71,6 +75,21 @@ async def get_bond_milestones_catalog() -> BondMilestonesCatalogResponse:
             for milestone in BOND_MILESTONES
         ]
     )
+
+
+@router.post(
+    "/import",
+    response_model=ImportSessionResponse,
+    summary="Import a full session bundle (creates new session)",
+)
+async def import_companion_session(
+    request: Request,
+    payload: ImportSessionRequest,
+) -> ImportSessionResponse:
+    store = _store(request)
+    bundle_data = payload.model_dump(exclude_none=True)
+    session_id = store.import_bundle(bundle_data)
+    return ImportSessionResponse(session_id=session_id)
 
 
 @router.get(
@@ -141,6 +160,38 @@ async def get_conversation_history(
     return ConversationHistoryResponse(
         messages=messages,
         turn_count=len(messages) // 2,
+    )
+
+
+@router.get(
+    "/{session_id}/bundle",
+    response_model=CompanionBundleResponse,
+    summary="Export full session bundle (config, messages, bond, milestones, memory)",
+)
+async def export_session_bundle(
+    request: Request,
+    session_id: str,
+) -> CompanionBundleResponse:
+    store = _store(request)
+    bundle = store.export_bundle(session_id)
+    return CompanionBundleResponse(**bundle)
+
+
+@router.post(
+    "/{session_id}/clone",
+    response_model=CloneSessionResponse,
+    summary="Clone session into a new companion session (no WebRTC required)",
+)
+async def clone_companion_session(
+    request: Request,
+    session_id: str,
+) -> CloneSessionResponse:
+    store = _store(request)
+    new_session_id = store.clone_session(session_id)
+    cfg = store.get_config(new_session_id)
+    return CloneSessionResponse(
+        session_id=new_session_id,
+        config=CompanionConfig(**cfg),
     )
 
 

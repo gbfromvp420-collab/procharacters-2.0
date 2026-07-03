@@ -50,3 +50,69 @@ class KGCFleetResponse(BaseModel):
 class KGCPruneResponse(BaseModel):
     pruned: int
     ttl_hours: int
+
+
+class KGCAuditEntry(BaseModel):
+    timestamp: str
+    action: str
+    actor: str
+    detail: str
+    result: str
+
+
+class KGCAuditResponse(BaseModel):
+    entries: list[KGCAuditEntry]
+    count: int
+
+
+class KGCPoliciesResponse(BaseModel):
+    default_relationship_mode: str = ""
+    default_system_prompt: str = ""
+    auto_prune_enabled: bool = True
+
+
+class KGCPoliciesUpdate(BaseModel):
+    default_relationship_mode: str | None = None
+    default_system_prompt: str | None = None
+    auto_prune_enabled: bool | None = None
+
+
+class KGCFleetBackupResponse(BaseModel):
+    version: str
+    exported_at: str
+    companion_sessions: dict[str, Any]
+    policies: dict[str, Any]
+    audit_tail: list[KGCAuditEntry]
+
+
+class KGCFleetRestoreRequest(BaseModel):
+    version: str | None = None
+    exported_at: str | None = None
+    companion_sessions: dict[str, Any]
+    policies: dict[str, Any] | None = None
+    audit_tail: list[dict[str, Any]] | None = None
+
+
+class KGCFleetRestoreResponse(BaseModel):
+    sessions_merged: int
+    sessions_total: int
+
+
+class KGCCloneRequest(BaseModel):
+    source_session_id: str
+    target_session_id: str | None = None
+
+
+class KGCCloneResponse(BaseModel):
+    source_session_id: str
+    target_session_id: str
+
+
+class KGCImportRequest(BaseModel):
+    session_id: str
+    data: dict[str, Any]
+
+
+class KGCImportResponse(BaseModel):
+    session_id: str
+    imported: bool

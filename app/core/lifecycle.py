@@ -8,6 +8,8 @@ from fastapi import FastAPI
 
 from app.core.config import Settings, get_settings
 from app.services.companion.store import SessionCompanionStore
+from app.services.kgc.audit import get_audit_log
+from app.services.kgc.policies import KGCPolicies
 from app.services.observability.metrics import MetricsCollector
 from app.services.llm.pipeline import LLMStreamPipeline
 from app.services.providers.probe import ProviderProbeService
@@ -23,12 +25,18 @@ _PRUNE_INTERVAL_SECONDS = 3600
 async def _companion_prune_loop(
     companion_store: SessionCompanionStore,
     ttl_hours: int,
+    kgc_policies: KGCPolicies,
 ) -> None:
+    from app.services.kgc.audit import log_action
+
     while True:
         await asyncio.sleep(_PRUNE_INTERVAL_SECONDS)
+        if not kgc_policies.is_auto_prune_enabled():
+            continue
         removed = companion_store.prune_stale(ttl_hours)
         if removed:
             logger.info("Pruned %d stale companion session(s)", removed)
+            log_action("fleet.prune", f"auto_prune removed={removed} ttl_hours={ttl_hours}")
 
 
 @asynccontextmanager
@@ -36,7 +44,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = get_settings()
     metrics = MetricsCollector()
     started_at_monotonic = time.monotonic()
-    companion_store = SessionCompanionStore(settings=settings, metrics=metrics)
+    kgc_policies = KGCPolicies(path=settings.kgc_policies_path)
+    kgc_audit = get_audit_log()
+    companion_store = SessionCompanionStore(
+        settings=settings,
+        metrics=metrics,
+        kgc_policies=kgc_policies,
+    )
     session_manager = WebRTCSessionManager(
         settings=settings,
         companion_store=companion_store,
@@ -49,6 +63,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.settings = settings
     app.state.metrics = metrics
     app.state.started_at_monotonic = started_at_monotonic
+    app.state.kgc_policies = kgc_policies
+    app.state.kgc_audit = kgc_audit
     app.state.companion_store = companion_store
     app.state.session_manager = session_manager
     app.state.llm_pipeline = llm_pipeline
@@ -62,6 +78,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _companion_prune_loop(
                 companion_store,
                 settings.companion_session_ttl_hours,
+                kgc_policies,
             )
         )
 

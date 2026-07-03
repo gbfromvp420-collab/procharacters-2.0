@@ -118,3 +118,49 @@ class BondMilestoneEvent(BaseModel):
     milestone_id: str
     label: str
     bond_score: int = Field(ge=0, le=100)
+
+
+class CompanionBundleResponse(BaseModel):
+    session_id: str
+    avatar_id: str
+    voice: str
+    system_prompt: str
+    relationship_mode: str = ""
+    bond_score: int = Field(default=0, ge=0, le=100)
+    milestones_unlocked: list[str] = Field(default_factory=list)
+    memory_summary: str = ""
+    messages: list[ChatMessage] = Field(default_factory=list)
+    turn_count: int = Field(default=0, ge=0)
+    created_at: str
+    last_active_at: str
+
+
+class CloneSessionResponse(BaseModel):
+    session_id: str
+    config: CompanionConfig
+
+
+class ImportSessionRequest(BaseModel):
+    session_id: str | None = Field(
+        default=None,
+        description="Optional target session id; a new uuid is used if omitted or colliding.",
+    )
+    avatar_id: str | None = None
+    voice: str | None = None
+    system_prompt: str | None = None
+    relationship_mode: str | None = None
+    bond_score: int | None = Field(default=None, ge=0, le=100)
+    milestones_unlocked: list[str] | None = None
+    memory_summary: str | None = None
+    messages: list[ChatMessage] | None = None
+    turn_count: int | None = Field(default=None, ge=0)
+    created_at: str | None = None
+    last_active_at: str | None = None
+    config: CompanionConfig | None = Field(
+        default=None,
+        description="Nested config block from bundle export (alternative flat fields).",
+    )
+
+
+class ImportSessionResponse(BaseModel):
+    session_id: str

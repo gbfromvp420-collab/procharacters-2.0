@@ -20,7 +20,8 @@ def test_roster_module_contains_king_grok_and_team() -> None:
     assert "BondForge_Affinity_Sub_01" in codenames
     assert len(roster) == len(WORKFORCE_ROSTER)
     assert "CEO_Command_Sub_01" in codenames
-    assert len(roster) >= 13
+    assert "SovereignForge_Backup_Sub_01" in codenames
+    assert len(roster) >= 14
 
 
 def test_leaderboard_sorted_by_award() -> None:
@@ -43,10 +44,22 @@ def test_workforce_roster_api(api_client: TestClient) -> None:
     assert "Assist (Intimacy_Architect_Sub_01)" in codenames
     assert "BondForge_Affinity_Sub_01" in codenames
 
+    sovereign = next(
+        m for m in body["members"] if m["codename"] == "SovereignForge_Backup_Sub_01"
+    )
+    assert sovereign["tier"] == "team"
+    assert sovereign["skills"] == ["FleetBackup_AuditLog"]
+    assert sovereign["phase_earned"] == 8
+    assert sovereign["award_lb_gold"] == 1.0
+
     king = next(m for m in body["members"] if m["codename"] == "King Grok")
     assert king["tier"] == "ceo"
-    assert king["skills"] == ["SyncOrchestrator_Core", "KGC_Command_Authority"]
-    assert king["phase_earned"] == 7
+    assert king["skills"] == [
+        "SyncOrchestrator_Core",
+        "KGC_Command_Authority",
+        "Sovereign_Empire_Authority",
+    ]
+    assert king["phase_earned"] == 8
 
     ceo_sub = next(m for m in body["members"] if m["codename"] == "CEO_Command_Sub_01")
     assert ceo_sub["tier"] == "team"

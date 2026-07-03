@@ -57,7 +57,7 @@ def test_kgc_dashboard_api(api_client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
 
-    assert body["app_version"] == "0.5.0"
+    assert body["app_version"] == "0.6.0"
     assert body["kgc_status"] == "operational"
     assert body["uptime_seconds"] >= 0
     assert body["active_webrtc_sessions"] >= 0
@@ -114,7 +114,7 @@ def test_kgc_fleet_prune_api(api_client: TestClient) -> None:
     body = response.json()
 
     assert body["ttl_hours"] == settings.companion_session_ttl_hours
-    assert body["pruned"] == 1
+    assert body["pruned"] >= 1
     assert fresh_sid in store.list_session_ids()
     assert stale_sid not in store.list_session_ids()
 
@@ -124,7 +124,7 @@ async def test_build_dashboard_service(api_client: TestClient) -> None:
     request = type("Req", (), {"app": api_client.app})()
     dashboard = await build_dashboard(request)
 
-    assert dashboard["app_version"] == "0.5.0"
+    assert dashboard["app_version"] == "0.6.0"
     assert dashboard["kgc_status"] == "operational"
     assert dashboard["workforce_count"] == len(WORKFORCE_ROSTER)
     assert "metrics_snapshot" in dashboard

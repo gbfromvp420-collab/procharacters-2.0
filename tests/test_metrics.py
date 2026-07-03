@@ -18,6 +18,9 @@ def test_metrics_collector_snapshot():
     metrics.increment_companion_turns_saved(4)
     metrics.increment_bond_increments(2)
 
+    metrics.increment_sessions_cloned(2)
+    metrics.increment_sessions_imported(3)
+
     snapshot = metrics.snapshot()
     assert snapshot == {
         "perform_requests": 2,
@@ -27,6 +30,8 @@ def test_metrics_collector_snapshot():
         "sessions_closed": 2,
         "companion_turns_saved": 4,
         "bond_increments": 2,
+        "sessions_cloned": 2,
+        "sessions_imported": 3,
     }
 
 
@@ -56,6 +61,8 @@ def test_metrics_api_returns_snapshot_and_uptime(api_client: TestClient) -> None
         "sessions_closed",
         "companion_turns_saved",
         "bond_increments",
+        "sessions_cloned",
+        "sessions_imported",
         "uptime_seconds",
     ):
         assert key in body

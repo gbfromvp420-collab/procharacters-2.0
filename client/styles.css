@@ -679,6 +679,158 @@ textarea:focus {
   border-color: rgba(232, 196, 104, 0.25);
 }
 
+.kgc-sovereign {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(108, 140, 255, 0.04);
+  border: 1px solid rgba(108, 140, 255, 0.16);
+}
+
+.kgc-sovereign-heading {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #e8c468;
+}
+
+.kgc-sovereign-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sovereign-clone-btn {
+  color: #9eb4ff;
+  border-color: rgba(108, 140, 255, 0.35);
+  font-weight: 600;
+}
+
+.sovereign-clone-btn:not(:disabled):hover {
+  background: rgba(108, 140, 255, 0.12);
+}
+
+.kgc-sovereign-import {
+  display: grid;
+  gap: 4px;
+}
+
+.sovereign-import-label,
+.sovereign-policy-label {
+  font-size: 0.62rem;
+  opacity: 0.8;
+}
+
+.sovereign-import-input {
+  font: inherit;
+  font-size: 0.68rem;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px dashed rgba(108, 140, 255, 0.35);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sovereign-import-input::file-selector-button {
+  margin-right: 8px;
+  padding: 4px 8px;
+  border: 1px solid rgba(108, 140, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(108, 140, 255, 0.1);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.64rem;
+  cursor: pointer;
+}
+
+.sovereign-import-input:hover {
+  border-color: rgba(108, 140, 255, 0.5);
+}
+
+.kgc-sovereign-policies {
+  display: grid;
+  gap: 6px;
+}
+
+.sovereign-policy-select {
+  font-size: 0.68rem;
+  padding: 4px 6px;
+}
+
+.sovereign-policy-prompt {
+  font-size: 0.68rem;
+  min-height: 2.6rem;
+  resize: vertical;
+}
+
+.kgc-audit-section {
+  display: grid;
+  gap: 6px;
+}
+
+.sovereign-audit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 140px;
+  overflow-y: auto;
+  display: grid;
+  gap: 4px;
+}
+
+.sovereign-audit-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-border);
+  font-family: ui-monospace, monospace;
+  font-size: 0.6rem;
+}
+
+.sovereign-audit-time {
+  grid-column: 1 / -1;
+  opacity: 0.65;
+  font-size: 0.56rem;
+}
+
+.sovereign-audit-action {
+  color: #9eb4ff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sovereign-audit-detail {
+  color: var(--text);
+  opacity: 0.9;
+  word-break: break-word;
+}
+
+.sovereign-audit-result {
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sovereign-audit-result.ok {
+  color: var(--success);
+}
+
+.sovereign-audit-result.error {
+  color: var(--danger);
+}
+
+.sovereign-audit-empty {
+  opacity: 0.7;
+  font-size: 0.64rem;
+  padding: 4px 0;
+}
+
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
