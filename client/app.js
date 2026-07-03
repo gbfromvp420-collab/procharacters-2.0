@@ -32,6 +32,9 @@ const state = {
   sseMode: false,
   webrtcFailCount: 0,
   workforceLoaded: false,
+  milestones: [],
+  milestonesLoaded: false,
+  kgcDashboardInterval: null,
 };
 
 let _fullIdVisible = false;
@@ -77,6 +80,11 @@ const els = {
   refreshMetricsBtn: document.getElementById("refreshMetricsBtn"),
   workforcePanel: document.getElementById("workforcePanel"),
   workforceRoster: document.getElementById("workforceRoster"),
+  kgcPanel: document.getElementById("kgcPanel"),
+  kgcDashboard: document.getElementById("kgcDashboard"),
+  kgcPruneBtn: document.getElementById("kgcPruneBtn"),
+  ceoCrownBadge: document.getElementById("ceoCrownBadge"),
+  milestoneChips: document.getElementById("milestoneChips"),
 };
 
 const FALLBACK_CATALOG = {
@@ -132,6 +140,99 @@ function updateBondMeter(score = state.bondScore) {
     els.bondMeter.title = `Affinity bond ${clamped}/100`;
     els.bondMeter.setAttribute("aria-label", `Bond score ${clamped} out of 100`);
   }
+  renderMilestoneChips();
+}
+
+function pulseBondMeter() {
+  if (!els.bondMeter) return;
+  els.bondMeter.classList.remove("bond-meter-pulse");
+  void els.bondMeter.offsetWidth;
+  els.bondMeter.classList.add("bond-meter-pulse");
+  clearTimeout(els.bondMeter._pulseTimer);
+  els.bondMeter._pulseTimer = setTimeout(() => {
+    if (els.bondMeter) els.bondMeter.classList.remove("bond-meter-pulse");
+  }, 1900);
+}
+
+function parseSemver(version) {
+  if (!version) return null;
+  const match = String(version).trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return null;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+  };
+}
+
+function isPhaseSevenOrLater(version) {
+  const parsed = parseSemver(version);
+  if (!parsed) return false;
+  if (parsed.major > 0) return true;
+  return parsed.minor >= 5;
+}
+
+function updateCeoCrownBadge(version = state.appVersion) {
+  if (!els.ceoCrownBadge) return;
+  const show = isPhaseSevenOrLater(version);
+  els.ceoCrownBadge.classList.toggle("hidden", !show);
+  els.ceoCrownBadge.setAttribute("aria-hidden", show ? "false" : "true");
+  if (show) {
+    els.ceoCrownBadge.title = `KGC CEO Command · API v${version}`;
+  }
+}
+
+function renderMilestoneChips() {
+  if (!els.milestoneChips) return;
+  const milestones = state.milestones;
+  if (!Array.isArray(milestones) || milestones.length === 0) {
+    els.milestoneChips.hidden = true;
+    els.milestoneChips.innerHTML = "";
+    return;
+  }
+
+  els.milestoneChips.hidden = false;
+  els.milestoneChips.innerHTML = "";
+  const bond = state.bondScore;
+
+  milestones.forEach((item) => {
+    const threshold = Number(item.bond_threshold ?? item.threshold ?? item.min_bond ?? 0);
+    const unlocked = bond >= threshold;
+    const chip = document.createElement("span");
+    chip.className = `milestone-chip ${unlocked ? "unlocked" : "locked"}`;
+    const icon = document.createElement("span");
+    icon.className = "milestone-chip-icon";
+    icon.textContent = unlocked ? "★" : "◇";
+    icon.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = item.label || item.id || `Bond ${threshold}`;
+    chip.title = unlocked
+      ? `${label.textContent} unlocked at bond ${threshold}`
+      : `${label.textContent} unlocks at bond ${threshold}`;
+    chip.appendChild(icon);
+    chip.appendChild(label);
+    els.milestoneChips.appendChild(chip);
+  });
+}
+
+async function loadMilestones() {
+  if (!els.milestoneChips) return;
+  try {
+    const res = await fetch(`${API}/companion/milestones`);
+    if (!res.ok) throw new Error(`milestones ${res.status}`);
+    const data = await res.json();
+    const milestones = Array.isArray(data) ? data : data.milestones || [];
+    state.milestones = milestones;
+    state.milestonesLoaded = true;
+    renderMilestoneChips();
+  } catch (e) {
+    console.warn("Milestone catalog fetch failed", e);
+    state.milestones = [];
+    if (els.milestoneChips) {
+      els.milestoneChips.hidden = true;
+      els.milestoneChips.innerHTML = "";
+    }
+  }
 }
 
 function canSendPrompt() {
@@ -174,8 +275,9 @@ function renderWorkforceRoster(members) {
     award.textContent = `${gold}lb gold`;
 
     const tier = document.createElement("span");
-    tier.className = "workforce-member-tier";
-    tier.textContent = `${member.tier || "team"} · phase ${member.phase_earned ?? "?"}`;
+    const tierName = member.tier || "team";
+    tier.className = `workforce-member-tier${tierName === "ceo" ? " workforce-member-tier-ceo" : ""}`;
+    tier.textContent = `${tierName} · phase ${member.phase_earned ?? "?"}`;
 
     const skills = document.createElement("span");
     skills.className = "workforce-member-skills";
@@ -663,6 +765,139 @@ function updateVersionBadge(version) {
   const label = version ? `v${version}` : "v—";
   els.versionBadge.textContent = label;
   els.versionBadge.title = version ? `API version ${version}` : "API version unknown";
+  updateCeoCrownBadge(version);
+}
+
+function kgcStatusClass(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (["ok", "healthy", "ready", "online", "active"].includes(normalized)) return "ok";
+  if (["degraded", "warn", "warning", "partial"].includes(normalized)) return "warn";
+  if (["error", "down", "offline", "failed"].includes(normalized)) return "error";
+  return "";
+}
+
+function renderKgcDashboard(data) {
+  if (!els.kgcDashboard) return;
+  if (!data) {
+    els.kgcDashboard.textContent = "KGC dashboard unavailable.";
+    return;
+  }
+
+  const status = data.kgc_status ?? data.status ?? "unknown";
+  const webrtcSessions = data.active_webrtc_sessions ?? data.webrtc_sessions?.length ?? 0;
+  const companionSessions = data.companion_sessions_count ?? data.companion_sessions ?? 0;
+  const avgBond = data.companion_avg_bond_score ?? data.avg_bond ?? "—";
+  const performs =
+    data.metrics_snapshot?.perform_requests ??
+    data.performs ??
+    data.perform_requests ??
+    data.perform_count ??
+    0;
+  const uptime = formatUptime(data.uptime_seconds ?? data.uptime ?? 0);
+  let providersOk = data.providers_ok_count ?? data.providers_ok;
+  if (providersOk == null && data.providers_summary && typeof data.providers_summary === "object") {
+    providersOk = Object.values(data.providers_summary).filter(
+      (entry) => entry && typeof entry === "object" && entry.status === "ok"
+    ).length;
+  }
+  if (providersOk == null) providersOk = "—";
+
+  els.kgcDashboard.innerHTML = "";
+  const stats = [
+    { label: "Status", value: status, className: kgcStatusClass(status) },
+    { label: "WebRTC", value: webrtcSessions },
+    { label: "Companion", value: companionSessions },
+    { label: "Avg bond", value: avgBond },
+    { label: "Performs", value: performs },
+    { label: "Uptime", value: uptime },
+    { label: "Providers OK", value: providersOk, className: Number(providersOk) >= 3 ? "ok" : "" },
+  ];
+
+  stats.forEach((stat) => {
+    const row = document.createElement("div");
+    row.className = "kgc-stat";
+
+    const label = document.createElement("span");
+    label.className = "kgc-stat-label";
+    label.textContent = stat.label;
+
+    const value = document.createElement("span");
+    value.className = `kgc-stat-value${stat.className ? ` ${stat.className}` : ""}`;
+    value.textContent = String(stat.value);
+
+    row.appendChild(label);
+    row.appendChild(value);
+    els.kgcDashboard.appendChild(row);
+  });
+}
+
+async function loadKgcDashboard({ quiet = false } = {}) {
+  if (!els.kgcDashboard) return null;
+  try {
+    const res = await fetch(`${API}/kgc/dashboard`);
+    if (!res.ok) throw new Error(`kgc dashboard ${res.status}`);
+    const data = await res.json();
+    renderKgcDashboard(data);
+    if (!quiet) {
+      const status = data.kgc_status ?? data.status ?? "unknown";
+      setLog(`KGC dashboard — ${status}`);
+    }
+    return data;
+  } catch (e) {
+    console.warn("KGC dashboard fetch failed", e);
+    renderKgcDashboard(null);
+    if (!quiet) setLog("KGC dashboard unavailable.");
+    return null;
+  }
+}
+
+async function pruneKgcFleet() {
+  if (!window.confirm("Prune stale WebRTC and companion sessions from the fleet?")) return;
+  if (els.kgcPruneBtn) els.kgcPruneBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/kgc/fleet/prune`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || data.message || `prune failed (${res.status})`);
+    }
+    const pruned =
+      data.pruned ??
+      data.removed ??
+      data.count ??
+      data.stale_removed ??
+      (typeof data.webrtc_pruned === "number" || typeof data.companion_pruned === "number"
+        ? (Number(data.webrtc_pruned) || 0) + (Number(data.companion_pruned) || 0)
+        : null);
+    const msg =
+      pruned != null
+        ? `Pruned ${pruned} stale session${pruned === 1 ? "" : "s"}`
+        : data.message || "Fleet prune complete";
+    showToast(msg);
+    setLog(`KGC prune — ${msg}`);
+    await loadKgcDashboard({ quiet: true });
+    await refreshActiveSessions();
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || "KGC prune failed", true);
+    setLog(e.message || "KGC prune failed.");
+  } finally {
+    if (els.kgcPruneBtn) els.kgcPruneBtn.disabled = false;
+  }
+}
+
+function startKgcPolling() {
+  stopKgcPolling();
+  loadKgcDashboard({ quiet: true }).catch(() => {});
+  state.kgcDashboardInterval = setInterval(() => {
+    if (els.kgcPanel?.open) loadKgcDashboard({ quiet: true }).catch(() => {});
+  }, 90000);
+}
+
+function stopKgcPolling() {
+  if (state.kgcDashboardInterval) {
+    clearInterval(state.kgcDashboardInterval);
+    state.kgcDashboardInterval = null;
+  }
 }
 
 function formatUptime(seconds) {
@@ -1384,6 +1619,13 @@ async function perform(prompt) {
           state.metrics.audio += 1;
         } else if (event.type === "video_frame") {
           state.metrics.frames += 1;
+        } else if (event.type === "bond_milestone") {
+          const milestoneLabel =
+            event.label || event.milestone || event.milestone_id || "Bond milestone";
+          if (typeof event.bond_score === "number") updateBondMeter(event.bond_score);
+          pulseBondMeter();
+          showToast(`Milestone unlocked: ${milestoneLabel}`);
+          setLog(`Bond milestone — ${milestoneLabel}`);
         } else if (event.type === "error" || event.type === "tts_error" || event.type === "video_error") {
           hadError = true;
           setLog(event.message || "Stream error");
@@ -1526,6 +1768,20 @@ if (els.sseModeBtn) {
 if (els.workforcePanel) {
   els.workforcePanel.addEventListener("toggle", () => {
     if (els.workforcePanel.open) loadWorkforceRoster().catch(() => {});
+  });
+}
+if (els.kgcPanel) {
+  els.kgcPanel.addEventListener("toggle", () => {
+    if (els.kgcPanel.open) {
+      startKgcPolling();
+    } else {
+      stopKgcPolling();
+    }
+  });
+}
+if (els.kgcPruneBtn) {
+  els.kgcPruneBtn.addEventListener("click", () => {
+    pruneKgcFleet().catch(() => {});
   });
 }
 
@@ -1748,7 +2004,7 @@ async function bootstrap() {
   }
 
   startServerMetricsPolling();
-  await refreshActiveSessions();
+  await Promise.all([refreshActiveSessions(), loadMilestones().catch(() => {})]);
 
   const resumed = await attemptAutoResumeOnLoad();
   if (!resumed) {

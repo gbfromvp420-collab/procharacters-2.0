@@ -19,7 +19,8 @@ def test_roster_module_contains_king_grok_and_team() -> None:
     assert "King Grok" in codenames
     assert "BondForge_Affinity_Sub_01" in codenames
     assert len(roster) == len(WORKFORCE_ROSTER)
-    assert len(roster) >= 12
+    assert "CEO_Command_Sub_01" in codenames
+    assert len(roster) >= 13
 
 
 def test_leaderboard_sorted_by_award() -> None:
@@ -43,8 +44,14 @@ def test_workforce_roster_api(api_client: TestClient) -> None:
     assert "BondForge_Affinity_Sub_01" in codenames
 
     king = next(m for m in body["members"] if m["codename"] == "King Grok")
-    assert king["tier"] == "lead"
-    assert king["skills"] == ["SyncOrchestrator_Core"]
+    assert king["tier"] == "ceo"
+    assert king["skills"] == ["SyncOrchestrator_Core", "KGC_Command_Authority"]
+    assert king["phase_earned"] == 7
+
+    ceo_sub = next(m for m in body["members"] if m["codename"] == "CEO_Command_Sub_01")
+    assert ceo_sub["tier"] == "team"
+    assert ceo_sub["skills"] == ["ExecutiveDashboard_Fleet"]
+    assert ceo_sub["phase_earned"] == 7
 
 
 def test_workforce_leaderboard_api(api_client: TestClient) -> None:

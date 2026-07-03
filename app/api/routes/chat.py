@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from app.api.sse import format_sse
+from app.models.companion import BondMilestoneEvent
 from app.models.llm import (
     ChatMessage,
     ChatModesResponse,
@@ -182,11 +183,19 @@ async def _perform_event_stream(
                 and isinstance(event, StreamDoneEvent)
                 and assistant_parts
             ):
-                companion_store.append_turn(
+                milestone = companion_store.append_turn(
                     payload.session_id,
                     user_turn,
                     ChatMessage(role="assistant", content="".join(assistant_parts)),
                 )
+                if milestone is not None:
+                    yield format_sse(
+                        BondMilestoneEvent(
+                            milestone_id=milestone.id,
+                            label=milestone.label,
+                            bond_score=companion_store.get_bond(payload.session_id),
+                        )
+                    )
             yield format_sse(event)
     except Exception as exc:
         logger.exception("Unhandled chat/perform stream error")

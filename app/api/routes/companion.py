@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse, Response
 
 from app.models.companion import (
+    BondMilestoneInfo,
+    BondMilestonesCatalogResponse,
     CompanionCatalogResponse,
     CompanionConfig,
     CompanionConfigUpdate,
@@ -11,6 +13,7 @@ from app.models.companion import (
     CompanionSessionSummary,
     ConversationHistoryResponse,
 )
+from app.services.companion.milestones import BOND_MILESTONES
 from app.services.companion.catalog import (
     get_avatar_catalog,
     get_prompt_presets,
@@ -49,6 +52,25 @@ async def get_companion_catalog(request: Request) -> CompanionCatalogResponse:
 async def list_companion_sessions(request: Request) -> list[CompanionSessionSummary]:
     store = _store(request)
     return [CompanionSessionSummary(**item) for item in store.list_persisted_sessions()]
+
+
+@router.get(
+    "/milestones",
+    response_model=BondMilestonesCatalogResponse,
+    summary="List bond milestone definitions and unlock thresholds",
+)
+async def get_bond_milestones_catalog() -> BondMilestonesCatalogResponse:
+    return BondMilestonesCatalogResponse(
+        milestones=[
+            BondMilestoneInfo(
+                id=milestone.id,
+                label=milestone.label,
+                description=milestone.description,
+                bond_threshold=milestone.bond_threshold,
+            )
+            for milestone in BOND_MILESTONES
+        ]
+    )
 
 
 @router.get(

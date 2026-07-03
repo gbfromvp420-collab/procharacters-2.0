@@ -4,6 +4,7 @@ from app.api.routes import (
     chat,
     companion,
     health,
+    kgc,
     llm,
     metrics,
     providers,
@@ -16,6 +17,7 @@ from app.api.routes import (
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(metrics.router)
+api_router.include_router(kgc.router)
 api_router.include_router(workforce.router)
 api_router.include_router(providers.router)
 api_router.include_router(llm.router)

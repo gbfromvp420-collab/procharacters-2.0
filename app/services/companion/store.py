@@ -6,6 +6,12 @@ from datetime import datetime, timedelta, timezone
 from app.core.config import Settings
 from app.models.llm import ChatMessage
 from app.services.companion.catalog import get_relationship_mode_overlay
+from app.services.companion.milestones import (
+    BondMilestone,
+    check_new_milestone,
+    get_milestones_for_ids,
+    get_unlocked_milestones,
+)
 from app.services.companion.persistence import CompanionPersistence
 from app.services.companion.summarizer import summarize_turns
 from app.services.observability.metrics import MetricsCollector
@@ -36,6 +42,7 @@ class _SessionState:
     system_prompt: str = ""
     relationship_mode: str = ""
     bond_score: int = 0
+    milestones_unlocked: list[str] = field(default_factory=list)
     memory_summary: str = ""
     created_at: str = ""
     last_active_at: str = ""
@@ -91,6 +98,14 @@ class SessionCompanionStore:
                 bond_score = max(0, min(100, int(bond_raw)))
             except (TypeError, ValueError):
                 bond_score = 0
+            milestones_raw = data.get("milestones_unlocked", [])
+            milestones_unlocked: list[str] = []
+            if isinstance(milestones_raw, list):
+                milestones_unlocked = [str(item) for item in milestones_raw if item]
+            if not milestones_unlocked and bond_score > 0:
+                milestones_unlocked = [
+                    milestone.id for milestone in get_unlocked_milestones(bond_score)
+                ]
             memory_summary = data.get("memory_summary", "")
             if not isinstance(memory_summary, str):
                 memory_summary = ""
@@ -101,6 +116,7 @@ class SessionCompanionStore:
                 system_prompt=data.get("system_prompt", self._default_system_prompt()),
                 relationship_mode=data.get("relationship_mode", ""),
                 bond_score=bond_score,
+                milestones_unlocked=milestones_unlocked,
                 memory_summary=memory_summary,
                 created_at=created_at,
                 last_active_at=data.get("last_active_at") or created_at,
@@ -114,6 +130,7 @@ class SessionCompanionStore:
                 "system_prompt": state.system_prompt,
                 "relationship_mode": state.relationship_mode,
                 "bond_score": state.bond_score,
+                "milestones_unlocked": list(state.milestones_unlocked),
                 "memory_summary": state.memory_summary,
                 "messages": [message.model_dump() for message in state.messages],
                 "created_at": state.created_at,
@@ -160,9 +177,22 @@ class SessionCompanionStore:
     def get_bond(self, session_id: str) -> int:
         return self.get_or_create(session_id).bond_score
 
+    def _unlock_milestone_if_crossed(
+        self,
+        state: _SessionState,
+        old_score: int,
+    ) -> BondMilestone | None:
+        milestone = check_new_milestone(old_score, state.bond_score)
+        if milestone is None or milestone.id in state.milestones_unlocked:
+            return None
+        state.milestones_unlocked.append(milestone.id)
+        return milestone
+
     def increment_bond(self, session_id: str, delta: int = 3) -> int:
         state = self.get_or_create(session_id)
+        old_score = state.bond_score
         state.bond_score = max(0, min(100, state.bond_score + delta))
+        self._unlock_milestone_if_crossed(state, old_score)
         self._persist()
         if self._metrics is not None:
             self._metrics.increment_bond_increments()
@@ -217,18 +247,22 @@ class SessionCompanionStore:
         session_id: str,
         user_msg: ChatMessage,
         assistant_msg: ChatMessage,
-    ) -> None:
+    ) -> BondMilestone | None:
         state = self.get_or_create(session_id)
         state.messages.append(user_msg)
         state.messages.append(assistant_msg)
         self._trim_history(state)
         bond_delta = 5 if state.relationship_mode in _ROMANTIC_BOND_MODES else 3
-        self.increment_bond(session_id, bond_delta)
+        old_score = state.bond_score
+        state.bond_score = max(0, min(100, state.bond_score + bond_delta))
+        milestone = self._unlock_milestone_if_crossed(state, old_score)
         self._maybe_summarize(state)
         state.last_active_at = _utc_now_iso()
         self._persist()
         if self._metrics is not None:
+            self._metrics.increment_bond_increments()
             self._metrics.increment_companion_turns_saved()
+        return milestone
 
     def clear_history(self, session_id: str) -> None:
         state = self.get_or_create(session_id)
@@ -290,6 +324,16 @@ class SessionCompanionStore:
                 system_content = f"{system_content}\n\n{overlay}"
             else:
                 system_content = overlay
+        milestone_overlays = [
+            milestone.prompt_overlay
+            for milestone in get_milestones_for_ids(state.milestones_unlocked)
+        ]
+        if milestone_overlays:
+            milestone_block = "\n\n".join(milestone_overlays)
+            if system_content:
+                system_content = f"{system_content}\n\n{milestone_block}"
+            else:
+                system_content = milestone_block
         messages: list[ChatMessage] = [
             ChatMessage(role="system", content=system_content),
         ]

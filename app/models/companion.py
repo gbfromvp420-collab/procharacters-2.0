@@ -100,3 +100,21 @@ class ConversationHistoryResponse(BaseModel):
     turn_count: int = Field(
         description="Number of completed user/assistant turns in stored history.",
     )
+
+
+class BondMilestoneInfo(BaseModel):
+    id: str
+    label: str
+    description: str
+    bond_threshold: int = Field(ge=0, le=100)
+
+
+class BondMilestonesCatalogResponse(BaseModel):
+    milestones: list[BondMilestoneInfo]
+
+
+class BondMilestoneEvent(BaseModel):
+    type: str = "bond_milestone"
+    milestone_id: str
+    label: str
+    bond_score: int = Field(ge=0, le=100)

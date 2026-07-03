@@ -18,9 +18,9 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
     {
         "id": "king-grok",
         "codename": "King Grok",
-        "skills": ["SyncOrchestrator_Core"],
-        "tier": "lead",
-        "phase_earned": 1,
+        "skills": ["SyncOrchestrator_Core", "KGC_Command_Authority"],
+        "tier": "ceo",
+        "phase_earned": 7,
         "award_lb_gold": 10.0,
     },
     {
@@ -109,6 +109,14 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
         "skills": ["BondScore_Memory"],
         "tier": "team",
         "phase_earned": 6,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "ceo-command-sub-01",
+        "codename": "CEO_Command_Sub_01",
+        "skills": ["ExecutiveDashboard_Fleet"],
+        "tier": "team",
+        "phase_earned": 7,
         "award_lb_gold": 1.0,
     },
 ]

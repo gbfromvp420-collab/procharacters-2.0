@@ -13,6 +13,7 @@
           <div class="brand-title-row">
             <h1>ProCharacters Cloud</h1>
             <span id="versionBadge" class="version-badge" title="API version">v—</span>
+            <span id="ceoCrownBadge" class="ceo-crown-badge hidden" title="KGC CEO Command · Phase 7" aria-hidden="true">👑</span>
           </div>
           <p>Live AI companion · WebRTC + streaming pipeline</p>
         </div>
@@ -95,10 +96,13 @@
           <div class="chat-header">
             <strong>Conversation</strong>
             <div class="chat-header-actions">
-              <div id="bondMeter" class="bond-meter" title="Affinity bond score (0–100)">
-                <span class="bond-hearts" aria-hidden="true">♥</span>
-                <div class="bond-bar"><div id="bondFill" class="bond-fill"></div></div>
-                <span id="bondScoreLabel" class="bond-score-label">0</span>
+              <div class="bond-milestone-group">
+                <div id="bondMeter" class="bond-meter" title="Affinity bond score (0–100)">
+                  <span class="bond-hearts" aria-hidden="true">♥</span>
+                  <div class="bond-bar"><div id="bondFill" class="bond-fill"></div></div>
+                  <span id="bondScoreLabel" class="bond-score-label">0</span>
+                </div>
+                <div id="milestoneChips" class="milestone-chips" aria-label="Bond milestones" hidden></div>
               </div>
               <span id="memoryIndicator" class="memory-indicator" title="Server-side conversation memory">memory on</span>
               <button id="exportBtn" class="btn-ghost" disabled title="Export conversation (txt in new tab, JSON download)">Export</button>
@@ -132,6 +136,13 @@
               <span id="serverMetricsPeek" class="server-metrics-peek" title="Server perform count and uptime">server —</span>
               <button id="refreshMetricsBtn" class="btn-ghost btn-metrics-refresh" type="button" title="Refresh server metrics">↻</button>
             </div>
+            <details id="kgcPanel" class="kgc-panel">
+              <summary>KGC Command</summary>
+              <div class="kgc-panel-body">
+                <div id="kgcDashboard" class="kgc-dashboard" aria-live="polite">Expand to load fleet dashboard…</div>
+                <button id="kgcPruneBtn" class="btn-ghost kgc-prune-btn" type="button" title="Remove stale WebRTC and companion sessions">Prune stale</button>
+              </div>
+            </details>
             <details id="workforcePanel" class="workforce-panel">
               <summary>Workforce roster</summary>
               <div id="workforceRoster" class="workforce-roster" aria-live="polite">Loading team…</div>
