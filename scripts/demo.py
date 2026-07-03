@@ -96,7 +96,6 @@ def start_server_in_bg() -> subprocess.Popen | None:
         "0.0.0.0",
         "--port",
         "8000",
-        "--no-reload",
         "--log-level",
         "warning",
     ]
