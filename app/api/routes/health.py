@@ -18,6 +18,8 @@ async def health_check(request: Request) -> dict:
         "version": settings.app_version,
         "active_webrtc_sessions": session_manager.active_session_count,
         "active_sessions": session_manager.list_session_ids(),
+        # Richer per-session state (conn/ice) to aid resume/reconnect without breaking API consumers
+        "webrtc_sessions": session_manager.list_sessions_with_details(),
         "llm_provider": llm_pipeline.provider,
         "llm_model": llm_pipeline.model,
         "tts_provider": tts_pipeline.provider,
@@ -25,4 +27,5 @@ async def health_check(request: Request) -> dict:
         "video_provider": video_pipeline.provider,
         "video_avatar_id": video_pipeline.avatar_id,
         "video_fps": video_pipeline.fps,
+        "mock_realistic": settings.mock_realistic,
     }

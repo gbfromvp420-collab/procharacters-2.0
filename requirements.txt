@@ -5,3 +5,6 @@ pydantic>=2.10.0
 pydantic-settings>=2.6.0
 python-multipart>=0.0.17
 httpx>=0.28.0
+# Testing (lightweight; for `python -m pytest` and demo verification)
+pytest>=8.0
+pytest-asyncio>=0.23

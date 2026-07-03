@@ -24,7 +24,7 @@
           <div class="video-shell">
             <video id="avatarVideo" autoplay playsinline muted></video>
             <div class="video-overlay">
-              <span class="video-badge">Session <span id="sessionLabel">—</span></span>
+              <span class="video-badge" id="sessionBadge" title="Click to copy / toggle full ID">Session <span id="sessionLabel">—</span></span>
               <span class="video-badge">ICE <span id="connectionLabel">idle</span></span>
             </div>
           </div>
@@ -35,7 +35,10 @@
           <div class="resume-controls">
             <input id="resumeInput" placeholder="session id (paste after reload to resume)" />
             <button id="resumeBtn" class="btn-secondary" disabled title="Resume an active server session">Resume</button>
-            <button id="refreshSessionsBtn" class="btn-secondary" title="List active sessions">↻</button>
+            <button id="refreshSessionsBtn" class="btn-secondary" title="Refresh &amp; show active sessions">↻</button>
+            <select id="sessionsSelect" class="sessions-select" title="Select active session to resume" disabled>
+              <option value="">— sessions —</option>
+            </select>
           </div>
         </section>
 
@@ -48,7 +51,15 @@
             <div class="metric"><span>Audio chunks</span><strong id="metricAudio">0</strong></div>
             <div class="metric"><span>Video frames</span><strong id="metricFrames">0</strong></div>
           </div>
+          <div id="webrtcStats" class="webrtc-stats">WebRTC: —</div>
           <div id="transcript" class="transcript"></div>
+          <div class="examples">
+            <span class="examples-label">Send example:</span>
+            <button type="button" class="ex-btn" data-prompt="Hello! How are you today?">Hello</button>
+            <button type="button" class="ex-btn" data-prompt="Tell me a short fun fact.">Fun fact</button>
+            <button type="button" class="ex-btn" data-prompt="Can you tell a quick joke?">Joke</button>
+            <button type="button" class="ex-btn" data-prompt="Describe what you see.">Describe</button>
+          </div>
           <div class="composer">
             <textarea
               id="promptInput"
@@ -59,6 +70,7 @@
           <div id="log" class="log"></div>
         </section>
       </main>
+      <div id="toast" class="toast hidden" aria-live="polite"></div>
     </div>
     <script src="/assets/app.js" type="module"></script>
   </body>

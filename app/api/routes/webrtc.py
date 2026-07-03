@@ -46,6 +46,12 @@ async def exchange_offer(
             sdp=payload.sdp,
             session_id=payload.session_id,
         )
+    except KeyError as exc:
+        # Explicit "session gone / bad resume id" case -> 404 for client to handle gracefully
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
     except Exception as exc:
         logger.exception("Failed to process WebRTC offer")
         raise HTTPException(
@@ -96,6 +102,18 @@ async def close_session(request: Request, session_id: str) -> None:
         )
 
 
+@router.delete(
+    "/sessions",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Close ALL active WebRTC sessions (dev / test cleanup helper)",
+)
+async def close_all_sessions(request: Request) -> None:
+    """Dev-only helper to clean up accumulated test/demo sessions without server restart."""
+    session_manager = request.app.state.session_manager
+    await session_manager.close_all()
+    logger.info("Closed all active WebRTC sessions (via DELETE /webrtc/sessions)")
+
+
 @router.get(
     "/sessions",
     response_model=ActiveSessionsResponse,
@@ -104,4 +122,5 @@ async def close_session(request: Request, session_id: str) -> None:
 async def list_sessions(request: Request) -> ActiveSessionsResponse:
     session_manager = request.app.state.session_manager
     ids = session_manager.list_session_ids()
-    return ActiveSessionsResponse(sessions=ids, count=len(ids))
+    details = session_manager.list_sessions_with_details()
+    return ActiveSessionsResponse(sessions=ids, count=len(ids), details=details)

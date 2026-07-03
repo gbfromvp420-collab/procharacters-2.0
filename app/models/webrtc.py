@@ -38,3 +38,5 @@ class SessionCreatedResponse(BaseModel):
 class ActiveSessionsResponse(BaseModel):
     sessions: list[str]
     count: int
+    # Extended details (conn/ice states etc) for health/debug/UI; original fields kept for backward compat
+    details: list[dict[str, str]] = Field(default_factory=list)

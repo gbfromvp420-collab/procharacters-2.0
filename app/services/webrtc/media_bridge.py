@@ -46,6 +46,11 @@ class AvatarMediaBridge:
         return self._tracks_attached
 
     def attach_tracks(self) -> tuple["AvatarAudioTrack", "AvatarVideoTrack"]:
+        """Create (once) the avatar tracks bound to this bridge.
+
+        Idempotent for re-negotiation: safe to call on 2nd+ offers; tracks objects are
+        reused across PC re-creates (new PC gets them via addTrack).
+        """
         from app.services.webrtc.tracks import AvatarAudioTrack, AvatarVideoTrack
 
         if self._audio_track is None:
@@ -53,15 +58,27 @@ class AvatarMediaBridge:
         if self._video_track is None:
             self._video_track = AvatarVideoTrack(self)
         self._tracks_attached = True
+        # Reset clocks on (re)attach to avoid drift on resume/reconnect scenarios
+        self._reset_track_clocks()
         return self._audio_track, self._video_track
 
     async def begin_stream(self) -> None:
-        """Reset timeline state for a new /chat/perform invocation."""
+        """Reset timeline + queues + track pacing for a new /chat/perform (or resume segment).
+
+        Called on every perform even for same WebRTC session (re-negotiation does not
+        require re-begin; this is for media segmenting within session).
+        """
         self._audio_timeline_ms = 0
         await self._drain_queue(self._audio_queue)
         await self._drain_queue(self._video_queue)
+        self._reset_track_clocks()
 
     async def ingest_event(self, event: PerformStreamEvent) -> None:
+        """Ingest pipeline events into WebRTC queues.
+
+        Robust: early return if closed (e.g. during reconnect/close race).
+        Used with same bridge across offers/renegotiations.
+        """
         if self.is_closed:
             return
 
@@ -139,3 +156,12 @@ class AvatarMediaBridge:
                 queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
+
+    def _reset_track_clocks(self) -> None:
+        """Reset per-track pacing clocks so multi-turn / resumed performs don't drift or burst."""
+        if self._audio_track is not None:
+            self._audio_track._clock_start = None
+            self._audio_track._clock_origin_ms = None
+        if self._video_track is not None:
+            self._video_track._clock_start = None
+            self._video_track._clock_origin_ms = None
