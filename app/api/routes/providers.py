@@ -1,6 +1,11 @@
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
-from app.models.providers import ProviderStatus, ProvidersStatusResponse
+from app.models.providers import (
+    ProviderForgeResponse,
+    ProviderStatus,
+    ProvidersStatusResponse,
+)
+from app.services.providers.forge import ProviderContractForge
 from app.services.providers.probe import ProviderProbeService
 
 router = APIRouter(prefix="/providers", tags=["providers"])
@@ -8,6 +13,13 @@ router = APIRouter(prefix="/providers", tags=["providers"])
 
 def _probe_service(request: Request) -> ProviderProbeService:
     return request.app.state.provider_probe
+
+
+def _forge_service(request: Request) -> ProviderContractForge:
+    return ProviderContractForge(
+        request.app.state.settings,
+        probe=_probe_service(request),
+    )
 
 
 @router.get(
@@ -39,3 +51,29 @@ async def get_provider_status(request: Request, name: str) -> ProviderStatus:
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Unknown provider name. Use llm, tts, or video.",
     )
+
+
+@router.get(
+    "/forge",
+    response_model=ProviderForgeResponse,
+    summary="Contract forge report — probe + spec compliance (optional live smoke)",
+)
+async def get_provider_forge_report(
+    request: Request,
+    live_smoke: bool = Query(
+        default=False,
+        description="When true, runs minimal real requests against remote providers.",
+    ),
+) -> ProviderForgeResponse:
+    forge = _forge_service(request)
+    return await forge.evaluate_all(live_smoke=live_smoke)
+
+
+@router.post(
+    "/forge/smoke",
+    response_model=ProviderForgeResponse,
+    summary="Run live contract smoke against configured remote providers",
+)
+async def run_provider_forge_smoke(request: Request) -> ProviderForgeResponse:
+    forge = _forge_service(request)
+    return await forge.evaluate_all(live_smoke=True)

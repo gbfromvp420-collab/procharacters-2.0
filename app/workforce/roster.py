@@ -25,10 +25,11 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
             "Presence_Theater_Authority",
             "Continuity_Forge_Authority",
             "Empire_Launch_Authority",
+            "Provider_Forge_Authority",
         ],
         "tier": "ceo",
-        "phase_earned": 11,
-        "award_lb_gold": 12.0,
+        "phase_earned": 12,
+        "award_lb_gold": 13.0,
     },
     {
         "id": "intimacy-architect-sub-01",
@@ -156,6 +157,14 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
         "skills": ["DockerCompose_ReadinessProbes"],
         "tier": "team",
         "phase_earned": 11,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "providerforge-contract-sub-01",
+        "codename": "ProviderForge_Contract_Sub_01",
+        "skills": ["RunPod_ContractSmoke_LiveForge"],
+        "tier": "team",
+        "phase_earned": 12,
         "award_lb_gold": 1.0,
     },
 ]

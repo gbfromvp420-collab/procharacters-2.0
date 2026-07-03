@@ -93,7 +93,25 @@ See detailed docstrings in:
 - Response: `{ "frames": [{"frame_index":0, "pts_ms":40, "frame_b64":"..."}, ...], "width"?, "height"? }`
 - One POST per TTS audio chunk; frames are batched back.
 
-RunPod-style workers should match the payload/response shapes above. Use the verification script for quick checks.
+RunPod-style workers should match the payload/response shapes above.
+
+### Provider Forge (Phase 12)
+
+Verify contracts against mock or live backends:
+
+```bash
+# API report (probe + contract spec; UI header uses this)
+curl http://localhost:8000/api/v1/providers/forge
+
+# Live smoke — minimal real requests to configured remote providers
+curl -X POST http://localhost:8000/api/v1/providers/forge/smoke
+
+# CLI contract smoke (mock default, or set LLM/TTS/VIDEO_PROVIDER=http + URLs)
+python scripts/verify_providers.py --all
+
+# Full Phase 12 gate
+make verify-forge
+```
 
 ## Session Resume
 
@@ -190,18 +208,18 @@ Covered:
 
 To run a subset: `python -m pytest tests/test_sync_and_chunker.py -q`
 
-## Status (v0.9.0 · Phase 11)
+## Status (v0.10.0 · Phase 12)
 
-Shipped across phases 1–11:
+Shipped across phases 1–12:
 - Full mock pipeline + WebRTC delivery + SSE fallback
 - Companion intelligence: avatars, voices, relationship modes, bond score, memory summarization
 - Session persistence, resume/reconnect, KGC sovereign fleet (backup/restore/policies/audit)
 - Presence theater: bond auras, milestone celebrations, voice input
 - Continuity forge: bulletproof resume + companion rehydrate
 - Empire launch: Docker compose, liveness/readiness probes, `make verify-empire`
+- Real provider forge: contract specs, `/providers/forge`, live smoke, `make verify-forge`
 
-Next (Phase 12+):
-- Real Provider Forge — hardened RunPod contract smoke against live endpoints
+Next (Phase 13+):
 - Agent Theater — workforce roster dispatching subagent tasks from the UI
 
 Built with FastAPI + aiortc + pydantic.

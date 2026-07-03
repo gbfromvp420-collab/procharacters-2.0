@@ -34,8 +34,8 @@ def empire_client(
         kgc_policies_path=str(tmp_path / "data" / "kgc_policies.json"),
         api_key_enabled=False,
         rate_limit_enabled=False,
-        deployment_phase=11,
-        app_version="0.9.0",
+        deployment_phase=12,
+        app_version="0.10.0",
     )
     _patch_settings(monkeypatch, settings)
     reset_rate_limiter()
@@ -49,8 +49,8 @@ def test_liveness_probe(empire_client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "alive"
-    assert body["version"] == "0.9.0"
-    assert body["deployment_phase"] == 11
+    assert body["version"] == "0.10.0"
+    assert body["deployment_phase"] == 12
 
 
 def test_readiness_probe_ok_with_mock_providers(empire_client: TestClient) -> None:
@@ -81,7 +81,7 @@ def test_readiness_probe_not_ready_when_providers_blocked(
 def test_health_includes_deployment_phase(empire_client: TestClient) -> None:
     response = empire_client.get("/api/v1/health")
     assert response.status_code == 200
-    assert response.json()["deployment_phase"] == 11
+    assert response.json()["deployment_phase"] == 12
 
 
 def test_live_and_ready_exempt_from_api_key(

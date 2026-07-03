@@ -190,3 +190,30 @@ async def test_openai_compatible_llm_client_parses_sse_stream() -> None:
     assert captured["json"]["temperature"] == 0.5
     assert captured["json"]["messages"] == [{"role": "user", "content": "hi"}]
     assert tokens == ["Hel", "lo"]
+
+
+@pytest.mark.asyncio
+async def test_http_tts_client_accepts_raw_pcm_response() -> None:
+    settings = Settings(
+        tts_provider="http",
+        tts_base_url="http://tts.test",
+        tts_sample_rate=24000,
+        tts_channels=1,
+    )
+    pcm = b"\x00\x01" * 80
+
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+    mock_response.headers = {"content-type": "audio/pcm"}
+    mock_response.content = pcm
+
+    async def mock_post(path: str, **kwargs: object):
+        assert path == "/synthesize"
+        return mock_response
+
+    client = HttpTTSClient(settings)
+    client._client.post = mock_post  # type: ignore[method-assign]
+
+    result = await client.synthesize("Raw path")
+    assert result.pcm_bytes == pcm
+    assert result.duration_ms > 0

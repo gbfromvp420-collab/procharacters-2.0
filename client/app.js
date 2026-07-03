@@ -809,8 +809,14 @@ async function loadCatalog() {
 function providerStatusClass(status) {
   if (status === "ok") return "ok";
   if (status === "degraded") return "degraded";
-  if (status === "error") return "error";
+  if (status === "error" || status === "unreachable") return "error";
   return "unknown";
+}
+
+function forgeDotClass(entry) {
+  if (!entry) return "unknown";
+  if (entry.contract_ok) return entry.probe_status === "ok" ? "ok" : "degraded";
+  return "error";
 }
 
 function renderProviderStatus(data) {
@@ -821,6 +827,10 @@ function renderProviderStatus(data) {
     { key: "video", label: "Vid" },
   ];
   const tooltipLines = [];
+  const forgeMode = !!data.forge_ok || items.some((item) => data[item.key]?.contract_ok !== undefined);
+  if (forgeMode && data.forge_ok !== undefined) {
+    tooltipLines.push(`Forge: ${data.forge_ok ? "OK" : "needs attention"}${data.live_smoke ? " (live smoke)" : ""}`);
+  }
   els.providerStatus.innerHTML = "";
   items.forEach((item, index) => {
     if (index > 0) {
@@ -834,17 +844,35 @@ function renderProviderStatus(data) {
     row.textContent = item.label;
     const dot = document.createElement("span");
     const info = data[item.key] || {};
-    dot.className = `provider-dot ${providerStatusClass(info.status)}`;
+    const status = forgeMode ? forgeDotClass(info) : providerStatusClass(info.status);
+    dot.className = `provider-dot ${status}`;
     row.appendChild(dot);
     els.providerStatus.appendChild(row);
-    tooltipLines.push(
-      `${item.label}: ${info.status || "unknown"} (${info.provider || "—"})${info.detail ? ` — ${info.detail}` : ""}`
-    );
+    if (forgeMode && info.spec) {
+      tooltipLines.push(
+        `${item.label}: ${info.contract_ok ? "contract ok" : "contract fail"} · probe=${info.probe_status || "—"} · ${info.mode || "—"}`
+      );
+      if (info.message) tooltipLines.push(`  ${info.message}`);
+      tooltipLines.push(`  ${info.spec.method} ${info.spec.endpoint_path}`);
+    } else {
+      tooltipLines.push(
+        `${item.label}: ${info.status || info.probe_status || "unknown"} (${info.provider || info.mode || "—"})${info.detail ? ` — ${info.detail}` : ""}`
+      );
+    }
   });
   els.providerStatus.title = tooltipLines.join("\n");
 }
 
 async function refreshProviderStatus() {
+  try {
+    const res = await fetch(`${API}/providers/forge`);
+    if (!res.ok) throw new Error(`providers/forge ${res.status}`);
+    state.providerStatus = await res.json();
+    renderProviderStatus(state.providerStatus);
+    return;
+  } catch (e) {
+    console.warn("Provider forge fetch failed, trying /providers/status", e);
+  }
   try {
     const res = await fetch(`${API}/providers/status`);
     if (!res.ok) throw new Error(`providers/status ${res.status}`);

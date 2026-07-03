@@ -200,7 +200,7 @@ async def main() -> None:
     if had_error:
         print("\nVerification completed with errors.")
         sys.exit(1)
-    print("\nVerification OK.")
+    print("\nPHASE 12 FORGE OK — provider contracts verified.")
 
 
 if __name__ == "__main__":

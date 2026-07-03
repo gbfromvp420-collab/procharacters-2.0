@@ -1,6 +1,6 @@
 # ProCharacters 2.0 - practical make targets for verification
 
-.PHONY: help install run test demo verify-all verify-empire docker-build docker-up docker-down clean
+.PHONY: help install run test demo verify-all verify-empire verify-forge docker-build docker-up docker-down clean
 
 help:
 	@echo "ProCharacters 2.0 make targets:"
@@ -11,6 +11,7 @@ help:
 	@echo "  make demo-fast      Demo without aiortc signaling"
 	@echo "  make verify-all     Run pytest + demo smoke (PHASE 5 VERIFY OK)"
 	@echo "  make verify-empire  Phase 11: pytest + live/ready probes"
+	@echo "  make verify-forge  Phase 12: pytest + provider forge smoke"
 	@echo "  make docker-build   Build production image"
 	@echo "  make docker-up      Start docker compose stack"
 	@echo "  make docker-down    Stop docker compose stack"
@@ -37,6 +38,9 @@ verify-all:
 
 verify-empire:
 	python scripts/verify_empire.py --start-server --skip-demo
+
+verify-forge:
+	python scripts/verify_forge.py --start-server
 
 docker-build:
 	docker compose build
