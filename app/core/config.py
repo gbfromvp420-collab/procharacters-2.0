@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "ProCharacters Cloud"
-    app_version: str = "0.8.0"
+    app_version: str = "0.9.0"
+    deployment_phase: int = 11
     debug: bool = False
 
     host: str = "0.0.0.0"

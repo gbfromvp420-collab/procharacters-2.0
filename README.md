@@ -97,13 +97,35 @@ RunPod-style workers should match the payload/response shapes above. Use the ver
 
 ## Session Resume
 
+- `POST /api/v1/webrtc/session/{id}/restore` — rehydrate signaling + ICE servers before resume
 - `GET /api/v1/webrtc/sessions` → `{sessions: [...], count}`
-- Client supports "Resume" using an existing `session_id` in the SDP offer exchange (server reuses PC + bridge when possible).
-- Works across browser reloads while the backend process keeps the in-memory session.
+- Client auto-resumes last session on reload (localStorage + companion persistence)
+- Soft PC reset on disconnect keeps session + media bridge alive for re-offer
+- Companion state survives server restarts via `data/companion_sessions.json`
+
+## Production Deployment (Docker)
+
+```bash
+cp .env.example .env   # edit for production providers / TURN / API key
+make docker-build
+make docker-up
+```
+
+- Image runs as non-root `appuser` with persistent volume at `/app/data`
+- **Liveness**: `GET /api/v1/health/live` — process is up
+- **Readiness**: `GET /api/v1/health/ready` — persistence writable + provider gate satisfied (503 when not ready)
+- **Full health**: `GET /api/v1/health` — version, providers, WebRTC session details
+
+```bash
+make verify-empire   # pytest + live/ready probe smoke (Phase 11)
+make docker-down
+```
 
 ## Development
 
 - Health: `curl http://localhost:8000/api/v1/health`
+- Liveness: `curl http://localhost:8000/api/v1/health/live`
+- Readiness: `curl http://localhost:8000/api/v1/health/ready`
 - Create session: `curl -X POST http://localhost:8000/api/v1/webrtc/session`
 - List: `curl http://localhost:8000/api/v1/webrtc/sessions`
 - Cleanup test sessions (dev helper): `curl -X DELETE http://localhost:8000/api/v1/webrtc/sessions`
@@ -168,19 +190,19 @@ Covered:
 
 To run a subset: `python -m pytest tests/test_sync_and_chunker.py -q`
 
-## Status
+## Status (v0.9.0 · Phase 11)
 
-Skeletal but runnable:
-- Complete mock pipeline + WebRTC delivery
-- Basic but working browser client
-- HTTP adapters exist for production providers
+Shipped across phases 1–11:
+- Full mock pipeline + WebRTC delivery + SSE fallback
+- Companion intelligence: avatars, voices, relationship modes, bond score, memory summarization
+- Session persistence, resume/reconnect, KGC sovereign fleet (backup/restore/policies/audit)
+- Presence theater: bond auras, milestone celebrations, voice input
+- Continuity forge: bulletproof resume + companion rehydrate
+- Empire launch: Docker compose, liveness/readiness probes, `make verify-empire`
 
-Next areas (contributions welcome):
-- Real provider implementations / contract tests
-- Persistent session metadata
-- Better renegotiation + reconnection UX
-- Avatar selection, prompts, multi-turn memory
-- Docker / deployment
+Next (Phase 12+):
+- Real Provider Forge — hardened RunPod contract smoke against live endpoints
+- Agent Theater — workforce roster dispatching subagent tasks from the UI
 
 Built with FastAPI + aiortc + pydantic.
 

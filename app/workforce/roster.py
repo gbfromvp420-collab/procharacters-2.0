@@ -24,10 +24,11 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
             "Sovereign_Empire_Authority",
             "Presence_Theater_Authority",
             "Continuity_Forge_Authority",
+            "Empire_Launch_Authority",
         ],
         "tier": "ceo",
-        "phase_earned": 10,
-        "award_lb_gold": 11.0,
+        "phase_earned": 11,
+        "award_lb_gold": 12.0,
     },
     {
         "id": "intimacy-architect-sub-01",
@@ -147,6 +148,14 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
         "skills": ["SoftPCReset_CompanionRehydrate"],
         "tier": "team",
         "phase_earned": 10,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "empirelaunch-deploy-sub-01",
+        "codename": "EmpireLaunch_Deploy_Sub_01",
+        "skills": ["DockerCompose_ReadinessProbes"],
+        "tier": "team",
+        "phase_earned": 11,
         "award_lb_gold": 1.0,
     },
 ]

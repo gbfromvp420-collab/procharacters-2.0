@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, status
+from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
+from app.models.health import LivenessResponse, ReadinessResponse
+from app.services.deploy.readiness import evaluate_readiness
 
 router = APIRouter(tags=["health"])
 
@@ -18,6 +21,7 @@ async def health_check(request: Request) -> dict:
         "status": "ok",
         "service": settings.app_name,
         "version": settings.app_version,
+        "deployment_phase": settings.deployment_phase,
         "active_webrtc_sessions": session_manager.active_session_count,
         "active_sessions": session_manager.list_session_ids(),
         # Richer per-session state (conn/ice) to aid resume/reconnect without breaking API consumers
@@ -42,3 +46,38 @@ async def health_check(request: Request) -> dict:
             body["metrics_summary"] = metrics.snapshot()
 
     return body
+
+
+@router.get(
+    "/health/live",
+    response_model=LivenessResponse,
+    summary="Liveness probe — process is up",
+)
+async def liveness_probe() -> LivenessResponse:
+    settings = get_settings()
+    return LivenessResponse(
+        service=settings.app_name,
+        version=settings.app_version,
+        deployment_phase=settings.deployment_phase,
+    )
+
+
+@router.get(
+    "/health/ready",
+    response_model=ReadinessResponse,
+    summary="Readiness probe — persistence writable and providers gate satisfied",
+)
+async def readiness_probe(request: Request) -> JSONResponse:
+    settings = get_settings()
+    ready, checks = await evaluate_readiness(request)
+    payload = ReadinessResponse(
+        status="ready" if ready else "not_ready",
+        service=settings.app_name,
+        version=settings.app_version,
+        deployment_phase=settings.deployment_phase,
+        checks=checks,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK if ready else status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=payload.model_dump(),
+    )

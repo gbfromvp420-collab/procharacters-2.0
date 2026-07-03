@@ -1,5 +1,15 @@
-venv
 .venv
+venv
 __pycache__
 .git
 .pytest_cache
+.coverage
+htmlcov
+data
+tests
+scripts
+Makefile
+*.md
+.env
+.env.*
+!.env.example

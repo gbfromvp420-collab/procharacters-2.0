@@ -13,6 +13,8 @@ from app.core.config import Settings, get_settings
 _API_PREFIX = "/api/v1"
 _EXEMPT_API_ROUTES = {
     ("GET", f"{_API_PREFIX}/health"),
+    ("GET", f"{_API_PREFIX}/health/live"),
+    ("GET", f"{_API_PREFIX}/health/ready"),
     ("GET", f"{_API_PREFIX}/metrics"),
     ("GET", f"{_API_PREFIX}/metrics/prometheus"),
 }

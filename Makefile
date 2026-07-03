@@ -1,16 +1,20 @@
 # ProCharacters 2.0 - practical make targets for verification
 
-.PHONY: help install run test demo verify-all clean
+.PHONY: help install run test demo verify-all verify-empire docker-build docker-up docker-down clean
 
 help:
 	@echo "ProCharacters 2.0 make targets:"
-	@echo "  make install     Install deps (into .venv if present)"
-	@echo "  make run         Start dev server (via scripts/run.sh)"
-	@echo "  make test        Run pytest (python -m pytest)"
-	@echo "  make demo        Run full terminal mock demo (starts server if needed)"
-	@echo "  make demo-fast   Demo without aiortc signaling"
-	@echo "  make verify-all  Run pytest + demo smoke (PHASE 5 VERIFY OK)"
-	@echo "  make clean       Remove __pycache__ and .pytest_cache"
+	@echo "  make install        Install deps (into .venv if present)"
+	@echo "  make run            Start dev server (via scripts/run.sh)"
+	@echo "  make test           Run pytest (python -m pytest)"
+	@echo "  make demo           Run full terminal mock demo (starts server if needed)"
+	@echo "  make demo-fast      Demo without aiortc signaling"
+	@echo "  make verify-all     Run pytest + demo smoke (PHASE 5 VERIFY OK)"
+	@echo "  make verify-empire  Phase 11: pytest + live/ready probes"
+	@echo "  make docker-build   Build production image"
+	@echo "  make docker-up      Start docker compose stack"
+	@echo "  make docker-down    Stop docker compose stack"
+	@echo "  make clean          Remove __pycache__ and .pytest_cache"
 
 install:
 	python -m venv .venv 2>/dev/null || true
@@ -30,6 +34,18 @@ demo-fast:
 
 verify-all:
 	python scripts/verify_all.py --start-server
+
+verify-empire:
+	python scripts/verify_empire.py --start-server --skip-demo
+
+docker-build:
+	docker compose build
+
+docker-up:
+	docker compose up -d
+
+docker-down:
+	docker compose down
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
