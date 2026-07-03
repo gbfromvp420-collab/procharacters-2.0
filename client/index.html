@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ProCharacters Cloud</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="brand">
+          <h1>ProCharacters Cloud</h1>
+          <p>Live AI companion · WebRTC + streaming pipeline</p>
+        </div>
+        <div class="status-pill">
+          <span id="statusDot" class="status-dot"></span>
+          <span id="statusText">Idle</span>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel">
+          <div class="video-shell">
+            <video id="avatarVideo" autoplay playsinline muted></video>
+            <div class="video-overlay">
+              <span class="video-badge">Session <span id="sessionLabel">—</span></span>
+              <span class="video-badge">ICE <span id="connectionLabel">idle</span></span>
+            </div>
+          </div>
+          <div class="controls">
+            <button id="connectBtn" class="btn-primary">Connect</button>
+            <button id="disconnectBtn" class="btn-danger" disabled>Disconnect</button>
+          </div>
+          <div class="resume-controls">
+            <input id="resumeInput" placeholder="session id (paste after reload to resume)" />
+            <button id="resumeBtn" class="btn-secondary" disabled title="Resume an active server session">Resume</button>
+            <button id="refreshSessionsBtn" class="btn-secondary" title="List active sessions">↻</button>
+          </div>
+        </section>
+
+        <section class="panel chat-panel">
+          <div class="chat-header">
+            <strong>Conversation</strong>
+          </div>
+          <div class="metrics">
+            <div class="metric"><span>Tokens</span><strong id="metricTokens">0</strong></div>
+            <div class="metric"><span>Audio chunks</span><strong id="metricAudio">0</strong></div>
+            <div class="metric"><span>Video frames</span><strong id="metricFrames">0</strong></div>
+          </div>
+          <div id="transcript" class="transcript"></div>
+          <div class="composer">
+            <textarea
+              id="promptInput"
+              placeholder="Say something to your companion…"
+            ></textarea>
+            <button id="sendBtn" class="btn-secondary" disabled>Send</button>
+          </div>
+          <div id="log" class="log"></div>
+        </section>
+      </main>
+    </div>
+    <script src="/assets/app.js" type="module"></script>
+  </body>
+</html>

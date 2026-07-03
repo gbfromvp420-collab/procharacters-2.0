@@ -1,0 +1,12 @@
+{
+  "name": "ProCharacters Cloud",
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "ProCharacters App",
+      "onAutoForward": "notify",
+      "visibility": "public"
+    }
+  },
+  "postCreateCommand": "python -m venv .venv && .venv/bin/pip install -r requirements.txt"
+}
