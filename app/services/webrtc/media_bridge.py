@@ -29,8 +29,8 @@ class AvatarMediaBridge:
     ) -> None:
         self.session_id = session_id
         self._settings = settings
-        self._audio_queue: asyncio.Queue[AudioPacket | object] = asyncio.Queue()
-        self._video_queue: asyncio.Queue[VideoPacket | object] = asyncio.Queue()
+        self._audio_queue: asyncio.Queue[AudioPacket | object] = asyncio.Queue(maxsize=128)
+        self._video_queue: asyncio.Queue[VideoPacket | object] = asyncio.Queue(maxsize=256)  # video frames can burst a bit
         self._closed = asyncio.Event()
         self._tracks_attached = False
         self._audio_timeline_ms = 0
@@ -102,7 +102,18 @@ class AvatarMediaBridge:
             start_pts_ms=self._audio_timeline_ms,
         )
         for packet in packets:
-            await self._audio_queue.put(packet)
+            try:
+                self._audio_queue.put_nowait(packet)
+            except asyncio.QueueFull:
+                # Smart drop oldest for live media (backpressure)
+                try:
+                    self._audio_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+                try:
+                    self._audio_queue.put_nowait(packet)
+                except asyncio.QueueFull:
+                    pass  # rare, drop this one
 
         self._audio_timeline_ms += chunk.duration_ms
 
@@ -117,7 +128,17 @@ class AvatarMediaBridge:
             frame_index=frame.frame_index,
             pts_ms=frame.pts_ms,
         )
-        await self._video_queue.put(packet)
+        try:
+            self._video_queue.put_nowait(packet)
+        except asyncio.QueueFull:
+            try:
+                self._video_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+            try:
+                self._video_queue.put_nowait(packet)
+            except asyncio.QueueFull:
+                pass
 
     async def get_audio_packet(self) -> AudioPacket | None:
         item = await self._audio_queue.get()

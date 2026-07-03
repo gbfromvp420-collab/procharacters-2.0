@@ -176,59 +176,6 @@ async function postIceCandidate(candidate) {
   });
 }
 
-/**
- * Soft reconnect / renegotiate using existing PC (no full new RTCPeerConnection).
- * Useful for ICE blips or "disconnected" without page reload or full restart.
- * If iceRestart, requests ICE restart (new candidates/ufrags).
- * Falls back to full connect() if no usable PC.
- * Guidance: window.renegotiate(true) from console for manual soft reconnect.
- */
-async function renegotiate(iceRestart = false) {
-  if (!state.pc || !state.sessionId) {
-    setLog("No active PC; falling back to full connect/resume.");
-    return connect(state.sessionId || null);
-  }
-  const mode = iceRestart ? "ICE restart" : "renegotiate";
-  setLog(`Starting soft ${mode} (re-using PC)...`);
-  try {
-    const offerOpts = iceRestart ? { iceRestart: true } : {};
-    const offer = await state.pc.createOffer(offerOpts);
-    await state.pc.setLocalDescription(offer);
-    await waitForIceGathering(state.pc);
-
-    const offerRes = await fetch(`${API}/webrtc/offer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id: state.sessionId,
-        type: "offer",
-        sdp: state.pc.localDescription.sdp,
-      }),
-    });
-    if (!offerRes.ok) {
-      let d = "";
-      try { d = (await offerRes.json()).detail || ""; } catch (_) {}
-      throw new Error(`Renegotiate failed: ${offerRes.status} ${d}`);
-    }
-    const answer = await offerRes.json();
-    if (answer.session_id && answer.session_id !== state.sessionId) {
-      state.sessionId = answer.session_id;
-      if (els.resumeInput) els.resumeInput.value = state.sessionId;
-      setupSessionBadgeCopy(state.sessionId);
-    }
-    await state.pc.setRemoteDescription({ type: "answer", sdp: answer.sdp });
-    setLog(`Soft ${mode} complete.`);
-    showToast(iceRestart ? "ICE restart done" : "Renegotiated");
-    // re-arm auto attempt flag
-    state.reconnectAttempted = false;
-  } catch (e) {
-    console.warn("Soft reconnect failed:", e);
-    setLog("Soft reconnect failed: " + (e.message || e) + ". Use Resume after reload or Connect.");
-    showToast("Soft reconnect failed", true);
-    // do not auto disconnect; let user decide or connection may recover
-  }
-}
-
 async function connect(resumeSessionId = null) {
   if (state.connected) return;
 
@@ -261,10 +208,6 @@ async function connect(resumeSessionId = null) {
 
     const pc = new RTCPeerConnection({ iceServers });
     state.pc = pc;
-    state.reconnectAttempted = false;
-    // Soft reconnect support + guidance (no full new PC if possible):
-    // Call window.renegotiate() or window.renegotiate(true) from console for ICE restart without reload.
-    try { window.renegotiate = renegotiate; window.__pc = pc; window.__sessionId = state.sessionId; } catch (_) {}
 
     const remoteStream = new MediaStream();
     els.avatarVideo.srcObject = remoteStream;
@@ -282,36 +225,15 @@ async function connect(resumeSessionId = null) {
       setLog(`Receiving ${event.track.kind} track.`);
     };
 
-    // Track ICE state separately for richer display
-    let currentIceState = pc.iceConnectionState || "new";
-    function updateConnLabel() {
-      els.connectionLabel.textContent = `${pc.connectionState}/ice:${currentIceState}`;
-    }
-    updateConnLabel();
-
-    // Click ICE label to attempt soft reconnect (re-uses PC) when stuck disconnected
-    if (els.connectionLabel) {
-      els.connectionLabel.style.cursor = "pointer";
-      els.connectionLabel.title = "Click to attempt soft reconnect (ICE restart) if disconnected";
-      els.connectionLabel.onclick = () => {
-        if (state.pc && !state.connected) {
-          renegotiate(true).catch(() => {});
-        } else {
-          setLog("Soft reconnect: only useful when disconnected but session active. Or use Resume after reload.");
-        }
-      };
-    }
-
     pc.onconnectionstatechange = () => {
-      updateConnLabel();
+      els.connectionLabel.textContent = pc.connectionState;
       if (pc.connectionState === "connected") {
         state.connected = true;
-        state.reconnectAttempted = false;
-        const statusText = state.connectionMode === "resumed" ? "Resumed" : "Live";
+        const statusText = state.connectionMode === "resumed" ? "Resumed" : "Connected";
         setStatus(statusText, true);
         setLog(
           state.connectionMode === "resumed"
-            ? "WebRTC resumed and connected."
+            ? "WebRTC resumed. Send a prompt to perform."
             : "WebRTC connected. Send a prompt to perform."
         );
         startStatsPolling();
@@ -322,42 +244,13 @@ async function connect(resumeSessionId = null) {
       } else if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
         const wasPerforming = state.performing;
         state.connected = false;
-        const isResumedMode = state.connectionMode === "resumed";
-        let label = pc.connectionState === "disconnected" && isResumedMode
-          ? "Resumed but disconnected"
-          : (pc.connectionState === "disconnected" ? "Disconnected" : "Failed");
-        setStatus(label);
+        setStatus("Disconnected");
         if (wasPerforming) {
           setLog("Connection lost during stream. Last partial response kept.");
           showToast("Disconnected during stream", true);
-        } else if (isResumedMode && pc.connectionState === "disconnected") {
-          setLog("Resumed but disconnected (ICE or network). Use soft reconnect or re-Resume after reload.");
         }
         stopStatsPolling();
       }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      currentIceState = pc.iceConnectionState || currentIceState;
-      updateConnLabel();
-      if ((pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") && state.pc === pc) {
-        if (!state.reconnectAttempted) {
-          state.reconnectAttempted = true;
-          setLog("ICE " + pc.iceConnectionState + " — attempting soft reconnect (re-use PC)...");
-          // auto soft attempt (non blocking)
-          setTimeout(() => {
-            if (state.pc === pc && !state.connected) {
-              renegotiate(true).catch(() => {});
-            }
-          }, 800);
-        } else {
-          setStatus(state.connectionMode === "resumed" ? "Resumed but disconnected" : "Disconnected");
-        }
-      }
-    };
-
-    pc.onicegatheringstatechange = () => {
-      // optional: could surface but conn/ice label sufficient
     };
 
     pc.onicecandidate = (event) => {
@@ -383,50 +276,33 @@ async function connect(resumeSessionId = null) {
     });
 
     if (!offerRes.ok) {
-      let detail = "";
+      let detail = "SDP offer exchange failed.";
       try {
         const errBody = await offerRes.json();
-        detail = errBody && errBody.detail ? errBody.detail : "";
+        if (errBody && errBody.detail) detail = errBody.detail;
       } catch (_) {}
-      if (isResume) {
-        // Better handling for resume offer fail e.g. session gone/closed on server.
-        const msg = `Resume failed (${offerRes.status}): ${detail || "session not found"}`;
-        setLog(msg);
-        showToast("Resume failed — session gone?", true);
-        addBubble("system", "Resume offer rejected (session may be gone/expired). Click Connect for a fresh session. ID cleared.");
-        // partial cleanup; leave resumeInput for user, do NOT full disconnect or throw (prevents losing UI)
-        if (pc) {
-          try { pc.close(); } catch (_) {}
-        }
-        state.pc = null;
-        state.sessionId = null;
-        state.connected = false;
-        state.connectionMode = "new";
-        els.connectBtn.disabled = false;
-        if (els.disconnectBtn) els.disconnectBtn.disabled = true;
-        if (els.sendBtn) els.sendBtn.disabled = true;
-        if (els.resumeBtn) els.resumeBtn.disabled = !!(els.resumeInput && els.resumeInput.value.trim());
-        if (els.sessionsSelect) els.sessionsSelect.disabled = false;
-        // keep resume input value so user can see what failed or try list again
-        return;
-      }
-      throw new Error(detail || "SDP offer exchange failed.");
+      throw new Error(detail);
     }
 
     const answer = await offerRes.json();
 
-    // Always adopt server's session id (handles any internal recreate/aliasing)
-    if (answer && answer.session_id) {
-      const returnedId = answer.session_id;
-      if (returnedId !== state.sessionId) {
-        const prev = state.sessionId;
-        state.sessionId = returnedId;
-        setupSessionBadgeCopy(state.sessionId);
-        if (els.resumeInput) els.resumeInput.value = state.sessionId;
-        if (isResume) {
-          setLog(`Adopted server session id ${returnedId.slice(0,8)} (was ${prev ? prev.slice(0,8) : "new"})`);
-        }
-      }
+    if (!offerRes.ok) {
+      let detail = "SDP offer exchange failed.";
+      try {
+        const errBody = await offerRes.json();
+        if (errBody && errBody.detail) detail = errBody.detail;
+      } catch (_) {}
+      throw new Error(detail);
+    }
+    const answer = await offerRes.json();
+
+    // Graceful "session not found" handling for resume:
+    const returnedId = answer.session_id || state.sessionId;
+    const wasNotFoundOnResume = isResume && resumeSessionId && returnedId !== resumeSessionId;
+    if (returnedId !== state.sessionId) {
+      state.sessionId = returnedId;
+      setupSessionBadgeCopy(state.sessionId);
+      if (els.resumeInput) els.resumeInput.value = state.sessionId;
     }
 
     await pc.setRemoteDescription({ type: "answer", sdp: answer.sdp });
@@ -437,22 +313,33 @@ async function connect(resumeSessionId = null) {
     if (els.resumeBtn) els.resumeBtn.disabled = true;
     if (els.sessionsSelect) els.sessionsSelect.disabled = false;
 
-    const resumeTargetMatch = isResume && resumeSessionId && state.sessionId === resumeSessionId;
-    if (isResume) {
-      state.connectionMode = "resumed";
-      setStatus("Resumed (connecting…)");
-      addBubble("system", resumeTargetMatch ? "Session resumed." : "Resume adopted different/new session id.");
-      setLog("Resume signaling complete. Waiting for connection (ICE may still negotiate).");
+    if (wasNotFoundOnResume) {
+      state.connectionMode = "new";
+      showToast(`Session ${resumeSessionId.slice(0, 8)} not found — started new`, true);
+      setLog(`Session not found (graceful fallback). New ID: ${state.sessionId.slice(0, 8)}`);
+      addBubble("system", "Session not found on resume — created a fresh session instead.");
+    } else if (isResume) {
+      addBubble("system", "Session resumed.");
     } else {
       addBubble("system", "Session ready. Avatar tracks attached.");
-      setLog("WebRTC signaling complete. Copy badge ID to test resume after reload.");
     }
+    setLog(
+      "WebRTC signaling complete. Copy badge ID for reload resume. " +
+        (state.connectionMode === "resumed" ? "Resumed successfully." : "")
+    );
   } catch (error) {
     console.error(error);
+    const msg = error.message || "Connection failed.";
+    const isNotFound = /not found|unknown.*session|404/i.test(msg);
     await disconnect();
-    setStatus("Error");
-    setLog(error.message || "Connection failed.");
-    showToast(error.message || "Connection failed.", true);
+    setStatus(isNotFound ? "Not found" : "Error");
+    setLog(msg);
+    showToast(msg, true);
+    if (isNotFound && resumeSessionId) {
+      if (els.resumeInput) els.resumeInput.value = "";
+      setLog("Session not found. Use ↻ to list or click Connect to start fresh.");
+      showToast("Session not found — pick from active list or Connect new", true);
+    }
     els.connectBtn.disabled = false;
     if (els.resumeBtn) els.resumeBtn.disabled = !!(els.resumeInput && els.resumeInput.value.trim());
     if (els.sessionsSelect) els.sessionsSelect.disabled = false;
