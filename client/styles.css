@@ -320,12 +320,19 @@ body {
 
 .video-overlay {
   position: absolute;
-  inset: auto 16px 16px 16px;
+  inset: auto 12px 12px 12px;
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+}
+
+.video-overlay .video-badge {
+  pointer-events: auto;
 }
 
 .video-badge {
@@ -662,8 +669,9 @@ button:not(:disabled):hover {
   padding: 24px;
 }
 
-.milestone-overlay.hidden {
-  display: none;
+.milestone-overlay.hidden,
+.milestone-overlay[hidden] {
+  display: none !important;
 }
 
 .milestone-overlay-backdrop {

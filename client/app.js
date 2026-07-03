@@ -257,6 +257,7 @@ function dismissMilestoneOverlay() {
   if (!els.milestoneOverlay) return;
   els.videoShell?.classList.remove("presence-celebrating");
   els.milestoneOverlay.classList.add("hidden");
+  els.milestoneOverlay.hidden = true;
 }
 
 function showMilestoneCelebration(event = {}) {
@@ -284,6 +285,7 @@ function showMilestoneCelebration(event = {}) {
   if (els.milestoneOverlayBond) els.milestoneOverlayBond.textContent = `Bond ${bondScore}`;
   spawnMilestoneParticles();
   els.milestoneOverlay.classList.remove("hidden");
+  els.milestoneOverlay.hidden = false;
   els.videoShell?.classList.add("presence-celebrating");
   setLog(`Bond milestone — ${milestoneLabel}`);
   showToast(`✨ ${milestoneLabel}`);
@@ -306,14 +308,15 @@ async function loadPresenceConfig() {
 }
 
 function initVoiceInput() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    if (els.micBtn) {
-      els.micBtn.title = "Voice input unavailable in this browser";
-      els.micBtn.disabled = true;
+  try {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      if (els.micBtn) {
+        els.micBtn.title = "Voice input unavailable in this browser";
+        els.micBtn.disabled = true;
+      }
+      return;
     }
-    return;
-  }
 
   const recognition = new SpeechRecognition();
   recognition.continuous = false;
@@ -381,6 +384,13 @@ function initVoiceInput() {
         showToast("Could not start voice input", true);
       }
     });
+  }
+  } catch (e) {
+    console.warn("Voice input init failed", e);
+    if (els.micBtn) {
+      els.micBtn.title = "Voice input unavailable";
+      els.micBtn.disabled = true;
+    }
   }
 }
 
@@ -2310,7 +2320,9 @@ function wireExamplePrompts() {
   });
 }
 
-els.connectBtn.addEventListener("click", () => connect());
+if (els.connectBtn) {
+  els.connectBtn.addEventListener("click", () => connect());
+}
 if (els.sseModeBtn) {
   els.sseModeBtn.addEventListener("click", () => enterSseMode("manual"));
 }
@@ -2521,23 +2533,29 @@ if (els.resumeBtn) {
   }
 }
 
-els.disconnectBtn.addEventListener("click", disconnect);
+if (els.disconnectBtn) {
+  els.disconnectBtn.addEventListener("click", disconnect);
+}
 if (els.clearHistoryBtn) {
   els.clearHistoryBtn.addEventListener("click", clearHistory);
 }
-els.sendBtn.addEventListener("click", () => {
-  const prompt = els.promptInput.value.trim();
-  if (!prompt) return;
-  els.promptInput.value = "";
-  perform(prompt);
-});
+if (els.sendBtn) {
+  els.sendBtn.addEventListener("click", () => {
+    const prompt = els.promptInput.value.trim();
+    if (!prompt) return;
+    els.promptInput.value = "";
+    perform(prompt);
+  });
+}
 
-els.promptInput.addEventListener("keydown", (event) => {
+if (els.promptInput) {
+  els.promptInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
-    els.sendBtn.click();
+    els.sendBtn?.click();
   }
-});
+  });
+}
 
 if (els.milestoneOverlayDismiss) {
   els.milestoneOverlayDismiss.addEventListener("click", dismissMilestoneOverlay);
@@ -2550,8 +2568,17 @@ if (els.milestoneOverlay) {
   });
 }
 
-initVoiceInput();
+try {
+  initVoiceInput();
+} catch (e) {
+  console.warn("Voice input setup failed", e);
+}
 
+if (els.milestoneOverlay) {
+  els.milestoneOverlay.hidden = true;
+}
+
+setLog("Loading ProCharacters…");
 resetTranscript();
 updateMetrics();
 updateMemoryIndicator();
@@ -2574,42 +2601,66 @@ if (els.systemPromptInput) {
   });
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function bootstrap() {
   if (state.bootstrapped) return;
   state.bootstrapped = true;
 
+  setLog("Loading companion catalog…");
   await loadCatalog();
   await refreshProviderStatus();
   startProviderStatusPolling();
 
   try {
-    const res = await fetch(`${API}/health`);
+    const res = await fetchWithTimeout(`${API}/health`);
+    if (!res.ok) throw new Error(`health ${res.status}`);
     const health = await res.json();
     state.appVersion = health.version || null;
     updateVersionBadge(state.appVersion);
     setLog(`${health.service} v${health.version} · pipeline ready`);
-  } catch (_) {
-    setLog("API unreachable.");
+  } catch (e) {
+    console.warn("Health check failed", e);
+    setLog("API unreachable — start the server: uvicorn app.main:app --reload --port 8000");
+    showToast("Server not reachable. Start uvicorn on port 8000.", true);
     return;
   }
 
   startServerMetricsPolling();
-  await Promise.all([
-    refreshActiveSessions(),
-    loadMilestones().catch(() => {}),
+  await Promise.allSettled([
+    refreshActiveSessions().catch((e) => {
+      console.warn("Session list fetch failed", e);
+    }),
+    loadMilestones(),
     loadPresenceConfig(),
   ]);
 
-  const resumed = await attemptAutoResumeOnLoad();
-  if (!resumed) {
-    try {
-      const last = localStorage.getItem("prochar_last_session_id");
-      if (last && els.resumeInput && !els.resumeInput.value) {
-        els.resumeInput.value = last;
-        if (els.resumeBtn) els.resumeBtn.disabled = false;
-      }
-    } catch (_) {}
-  }
+  try {
+    const last = localStorage.getItem("prochar_last_session_id");
+    if (last && els.resumeInput && !els.resumeInput.value) {
+      els.resumeInput.value = last;
+      if (els.resumeBtn) els.resumeBtn.disabled = false;
+    }
+  } catch (_) {}
+
+  // Auto-resume in background so the UI stays interactive.
+  attemptAutoResumeOnLoad()
+    .then((resumed) => {
+      if (resumed) setLog("Auto-resumed last session.");
+    })
+    .catch((e) => console.warn("Auto-resume on load failed", e));
 }
 
-bootstrap().catch((e) => console.error("Bootstrap failed", e));
+bootstrap().catch((e) => {
+  console.error("Bootstrap failed", e);
+  setLog("Bootstrap failed — check console and ensure the API server is running.");
+  showToast("App failed to start — see log footer.", true);
+});
