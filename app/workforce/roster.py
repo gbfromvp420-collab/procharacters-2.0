@@ -26,10 +26,11 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
             "Continuity_Forge_Authority",
             "Empire_Launch_Authority",
             "Provider_Forge_Authority",
+            "Agent_Theater_Authority",
         ],
         "tier": "ceo",
-        "phase_earned": 12,
-        "award_lb_gold": 13.0,
+        "phase_earned": 13,
+        "award_lb_gold": 14.0,
     },
     {
         "id": "intimacy-architect-sub-01",
@@ -165,6 +166,14 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
         "skills": ["RunPod_ContractSmoke_LiveForge"],
         "tier": "team",
         "phase_earned": 12,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "agenttheater-dispatch-sub-01",
+        "codename": "AgentTheater_Dispatch_Sub_01",
+        "skills": ["Workforce_TaskDispatch"],
+        "tier": "team",
+        "phase_earned": 13,
         "award_lb_gold": 1.0,
     },
 ]

@@ -192,6 +192,24 @@
               <summary>Workforce roster</summary>
               <div id="workforceRoster" class="workforce-roster" aria-live="polite">Loading team…</div>
             </details>
+            <details id="agentTheaterPanel" class="agent-theater-panel">
+              <summary>Agent Theater</summary>
+              <div class="agent-theater-body">
+                <div id="agentTheaterStatus" class="agent-theater-status" aria-live="polite">Expand to load theater…</div>
+                <form id="agentDispatchForm" class="agent-dispatch-form">
+                  <label class="agent-dispatch-label" for="agentMemberSelect">Subagent</label>
+                  <select id="agentMemberSelect" class="agent-dispatch-select" aria-label="Workforce subagent"></select>
+                  <label class="agent-dispatch-label" for="agentSkillSelect">Skill</label>
+                  <select id="agentSkillSelect" class="agent-dispatch-select" aria-label="Subagent skill"></select>
+                  <label class="agent-dispatch-label" for="agentTaskPrompt">Task</label>
+                  <textarea id="agentTaskPrompt" class="agent-dispatch-prompt" rows="2" maxlength="4000" placeholder="Describe the subagent task…"></textarea>
+                  <button id="agentDispatchBtn" class="btn-ghost agent-dispatch-btn" type="submit">Dispatch</button>
+                </form>
+                <ul id="agentTaskList" class="agent-task-list" aria-live="polite">
+                  <li class="agent-task-empty">No tasks yet.</li>
+                </ul>
+              </div>
+            </details>
           </div>
         </section>
       </main>

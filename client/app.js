@@ -32,6 +32,8 @@ const state = {
   sseMode: false,
   webrtcFailCount: 0,
   workforceLoaded: false,
+  agentTheaterMembers: [],
+  agentTheaterInterval: null,
   milestones: [],
   milestonesLoaded: false,
   kgcDashboardInterval: null,
@@ -83,6 +85,14 @@ const els = {
   refreshMetricsBtn: document.getElementById("refreshMetricsBtn"),
   workforcePanel: document.getElementById("workforcePanel"),
   workforceRoster: document.getElementById("workforceRoster"),
+  agentTheaterPanel: document.getElementById("agentTheaterPanel"),
+  agentTheaterStatus: document.getElementById("agentTheaterStatus"),
+  agentDispatchForm: document.getElementById("agentDispatchForm"),
+  agentMemberSelect: document.getElementById("agentMemberSelect"),
+  agentSkillSelect: document.getElementById("agentSkillSelect"),
+  agentTaskPrompt: document.getElementById("agentTaskPrompt"),
+  agentDispatchBtn: document.getElementById("agentDispatchBtn"),
+  agentTaskList: document.getElementById("agentTaskList"),
   kgcPanel: document.getElementById("kgcPanel"),
   kgcDashboard: document.getElementById("kgcDashboard"),
   kgcPruneBtn: document.getElementById("kgcPruneBtn"),
@@ -560,6 +570,189 @@ async function loadWorkforceRoster() {
   } catch (e) {
     console.warn("Workforce roster fetch failed", e);
     els.workforceRoster.textContent = "Workforce roster unavailable.";
+  }
+}
+
+function renderAgentTheaterStatus(data) {
+  if (!els.agentTheaterStatus) return;
+  if (!data) {
+    els.agentTheaterStatus.textContent = "Agent Theater unavailable.";
+    return;
+  }
+  const stats = [
+    { label: "Phase", value: data.deployment_phase ?? "?" },
+    { label: "Team", value: data.dispatchable_count ?? 0 },
+    { label: "Queued", value: data.tasks_queued ?? 0 },
+    { label: "Running", value: data.tasks_running ?? 0 },
+    { label: "Done", value: data.tasks_completed ?? 0 },
+    { label: "Failed", value: data.tasks_failed ?? 0 },
+  ];
+  els.agentTheaterStatus.innerHTML = "";
+  stats.forEach((stat) => {
+    const span = document.createElement("span");
+    span.className = "agent-theater-stat";
+    span.textContent = `${stat.label}: ${stat.value}`;
+    els.agentTheaterStatus.appendChild(span);
+  });
+}
+
+function populateAgentMemberSelect(members) {
+  if (!els.agentMemberSelect) return;
+  const list = Array.isArray(members) ? members : [];
+  state.agentTheaterMembers = list;
+  els.agentMemberSelect.innerHTML = "";
+  list.forEach((member) => {
+    const option = document.createElement("option");
+    option.value = member.id;
+    option.textContent = member.codename || member.id;
+    els.agentMemberSelect.appendChild(option);
+  });
+  updateAgentSkillSelect();
+}
+
+function updateAgentSkillSelect() {
+  if (!els.agentSkillSelect || !els.agentMemberSelect) return;
+  const memberId = els.agentMemberSelect.value;
+  const member = state.agentTheaterMembers.find((item) => item.id === memberId);
+  const skills = member?.skills || [];
+  els.agentSkillSelect.innerHTML = "";
+  skills.forEach((skill, index) => {
+    const option = document.createElement("option");
+    option.value = skill;
+    option.textContent = skill;
+    if (index === 0) option.selected = true;
+    els.agentSkillSelect.appendChild(option);
+  });
+}
+
+function renderAgentTaskList(tasks) {
+  if (!els.agentTaskList) return;
+  const list = Array.isArray(tasks) ? tasks : [];
+  els.agentTaskList.innerHTML = "";
+  if (list.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "agent-task-empty";
+    empty.textContent = "No tasks yet.";
+    els.agentTaskList.appendChild(empty);
+    return;
+  }
+  list.forEach((task) => {
+    const item = document.createElement("li");
+    item.className = "agent-task-item";
+
+    const head = document.createElement("div");
+    head.className = "agent-task-head";
+
+    const title = document.createElement("span");
+    title.textContent = task.codename || task.member_id || "subagent";
+
+    const status = document.createElement("span");
+    const statusName = task.status || "queued";
+    status.className = `agent-task-status agent-task-status-${statusName}`;
+    status.textContent = statusName;
+
+    head.appendChild(title);
+    head.appendChild(status);
+
+    const meta = document.createElement("div");
+    meta.className = "agent-task-meta";
+    const duration = typeof task.duration_ms === "number" ? `${task.duration_ms}ms` : "…";
+    meta.textContent = `${task.skill || "skill"} · ${duration}`;
+
+    item.appendChild(head);
+    item.appendChild(meta);
+
+    const preview = task.result || task.error || task.prompt;
+    if (preview) {
+      const body = document.createElement("div");
+      body.className = "agent-task-result";
+      body.textContent = preview;
+      item.appendChild(body);
+    }
+
+    els.agentTaskList.appendChild(item);
+  });
+}
+
+async function loadAgentTheater({ quiet = false } = {}) {
+  if (!els.agentTheaterStatus) return null;
+  try {
+    const [statusRes, tasksRes] = await Promise.all([
+      fetch(`${API}/workforce/theater`),
+      fetch(`${API}/workforce/theater/tasks?limit=20`),
+    ]);
+    if (!statusRes.ok) throw new Error(`theater ${statusRes.status}`);
+    if (!tasksRes.ok) throw new Error(`theater tasks ${tasksRes.status}`);
+    const statusData = await statusRes.json();
+    const tasksData = await tasksRes.json();
+    renderAgentTheaterStatus(statusData);
+    populateAgentMemberSelect(statusData.members || []);
+    renderAgentTaskList(tasksData.tasks || []);
+    if (!quiet) {
+      setLog(
+        `Agent Theater — ${statusData.tasks_running ?? 0} running, ${statusData.tasks_completed ?? 0} done`
+      );
+    }
+    return statusData;
+  } catch (e) {
+    console.warn("Agent Theater fetch failed", e);
+    renderAgentTheaterStatus(null);
+    renderAgentTaskList([]);
+    if (!quiet) setLog("Agent Theater unavailable.");
+    return null;
+  }
+}
+
+async function dispatchAgentTask(event) {
+  event?.preventDefault?.();
+  if (!els.agentMemberSelect || !els.agentTaskPrompt) return;
+  const prompt = (els.agentTaskPrompt.value || "").trim();
+  if (!prompt) {
+    showToast("Enter a task prompt first", true);
+    return;
+  }
+  if (els.agentDispatchBtn) els.agentDispatchBtn.disabled = true;
+  try {
+    const payload = {
+      member_id: els.agentMemberSelect.value,
+      prompt,
+      skill: els.agentSkillSelect?.value || null,
+      session_id: state.sessionId || null,
+    };
+    const res = await fetch(`${API}/workforce/theater/dispatch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `dispatch ${res.status}`);
+    }
+    const task = await res.json();
+    els.agentTaskPrompt.value = "";
+    setLog(`Dispatched to ${task.codename} (${task.skill})`);
+    showToast(`Task queued — ${task.codename}`);
+    await loadAgentTheater({ quiet: true });
+  } catch (e) {
+    showToast(e.message || "Dispatch failed", true);
+    setLog(e.message || "Agent dispatch failed.");
+  } finally {
+    if (els.agentDispatchBtn) els.agentDispatchBtn.disabled = false;
+  }
+}
+
+function startAgentTheaterPolling() {
+  stopAgentTheaterPolling();
+  loadAgentTheater({ quiet: true }).catch(() => {});
+  state.agentTheaterInterval = setInterval(() => {
+    if (els.agentTheaterPanel?.open) loadAgentTheater({ quiet: true }).catch(() => {});
+  }, 3000);
+}
+
+function stopAgentTheaterPolling() {
+  if (state.agentTheaterInterval) {
+    clearInterval(state.agentTheaterInterval);
+    state.agentTheaterInterval = null;
   }
 }
 
@@ -2372,6 +2565,23 @@ if (els.sseModeBtn) {
 if (els.workforcePanel) {
   els.workforcePanel.addEventListener("toggle", () => {
     if (els.workforcePanel.open) loadWorkforceRoster().catch(() => {});
+  });
+}
+if (els.agentTheaterPanel) {
+  els.agentTheaterPanel.addEventListener("toggle", () => {
+    if (els.agentTheaterPanel.open) {
+      startAgentTheaterPolling();
+    } else {
+      stopAgentTheaterPolling();
+    }
+  });
+}
+if (els.agentMemberSelect) {
+  els.agentMemberSelect.addEventListener("change", () => updateAgentSkillSelect());
+}
+if (els.agentDispatchForm) {
+  els.agentDispatchForm.addEventListener("submit", (event) => {
+    dispatchAgentTask(event).catch(() => {});
   });
 }
 if (els.kgcPanel) {

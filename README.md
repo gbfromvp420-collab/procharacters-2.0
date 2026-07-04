@@ -113,6 +113,28 @@ python scripts/verify_providers.py --all
 make verify-forge
 ```
 
+### Agent Theater (Phase 13)
+
+Dispatch subagent tasks to workforce roster members from the UI or API:
+
+```bash
+# Theater status + dispatchable roster
+curl http://localhost:8000/api/v1/workforce/theater
+
+# Dispatch a task
+curl -X POST http://localhost:8000/api/v1/workforce/theater/dispatch \
+  -H 'Content-Type: application/json' \
+  -d '{"member_id":"agenttheater-dispatch-sub-01","prompt":"Smoke test task","skill":"Workforce_TaskDispatch"}'
+
+# List recent tasks
+curl http://localhost:8000/api/v1/workforce/theater/tasks
+
+# Full Phase 13 gate
+make verify-theater
+```
+
+In the UI, expand **Agent Theater** under the sidebar to pick a subagent, choose a skill, enter a task, and click **Dispatch**. Task status polls automatically while the panel is open.
+
 ## Session Resume
 
 - `POST /api/v1/webrtc/session/{id}/restore` — rehydrate signaling + ICE servers before resume
@@ -208,9 +230,9 @@ Covered:
 
 To run a subset: `python -m pytest tests/test_sync_and_chunker.py -q`
 
-## Status (v0.10.0 · Phase 12)
+## Status (v0.11.0 · Phase 13)
 
-Shipped across phases 1–12:
+Shipped across phases 1–13:
 - Full mock pipeline + WebRTC delivery + SSE fallback
 - Companion intelligence: avatars, voices, relationship modes, bond score, memory summarization
 - Session persistence, resume/reconnect, KGC sovereign fleet (backup/restore/policies/audit)
@@ -218,9 +240,10 @@ Shipped across phases 1–12:
 - Continuity forge: bulletproof resume + companion rehydrate
 - Empire launch: Docker compose, liveness/readiness probes, `make verify-empire`
 - Real provider forge: contract specs, `/providers/forge`, live smoke, `make verify-forge`
+- Agent Theater: workforce task dispatch from UI, `/workforce/theater/*`, `make verify-theater`
 
-Next (Phase 13+):
-- Agent Theater — workforce roster dispatching subagent tasks from the UI
+Next (Phase 14+):
+- TBD — multi-agent orchestration and task chaining
 
 Built with FastAPI + aiortc + pydantic.
 

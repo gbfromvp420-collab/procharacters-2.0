@@ -16,6 +16,7 @@ from app.services.providers.probe import ProviderProbeService
 from app.services.tts.pipeline import TTSStreamPipeline
 from app.services.video.pipeline import VideoSyncPipeline
 from app.services.webrtc.session_manager import WebRTCSessionManager
+from app.services.workforce.theater import AgentTheater
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     tts_pipeline = TTSStreamPipeline(settings=settings)
     video_pipeline = VideoSyncPipeline(settings=settings)
     provider_probe = ProviderProbeService(settings=settings)
+    agent_theater = AgentTheater()
 
     app.state.settings = settings
     app.state.metrics = metrics
@@ -71,6 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.tts_pipeline = tts_pipeline
     app.state.video_pipeline = video_pipeline
     app.state.provider_probe = provider_probe
+    app.state.agent_theater = agent_theater
 
     prune_task: asyncio.Task[None] | None = None
     if settings.companion_persist_enabled:
