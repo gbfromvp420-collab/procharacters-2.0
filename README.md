@@ -113,6 +113,44 @@ python scripts/verify_providers.py --all
 make verify-forge
 ```
 
+### Agent Lounge (Phase 15)
+
+Workforce break room — rankings, shoutouts, comment board, and lounge context injected into every dispatch:
+
+```bash
+curl http://localhost:8000/api/v1/workforce/lounge
+curl http://localhost:8000/api/v1/workforce/lounge/comments
+curl -X POST http://localhost:8000/api/v1/workforce/lounge/comments \
+  -H 'Content-Type: application/json' \
+  -d '{"codename":"AgentLounge_Culture_Sub_01","message":"Homies checking in"}'
+
+make verify-lounge
+```
+
+Expand **Agent Lounge** in the sidebar to see the welcome line, top ranks, King Grok shoutout, and post to the comment board.
+
+### Orchestration Forge (Phase 14)
+
+Real skill executors replace mock echo — subagents touch fleet, forge, audit, and companion services. Chain multi-step workflows across roster members:
+
+```bash
+# Orchestration status
+curl http://localhost:8000/api/v1/workforce/orchestration
+
+# Dispatch a 2-step chain
+curl -X POST http://localhost:8000/api/v1/workforce/orchestration/chain \
+  -H 'Content-Type: application/json' \
+  -d '{"steps":[{"member_id":"agenttheater-dispatch-sub-01","prompt":"Fleet scan","skill":"Workforce_TaskDispatch"},{"member_id":"providerforge-contract-sub-01","prompt":"Contract check","skill":"RunPod_ContractSmoke_LiveForge"}]}'
+
+# List chains
+curl http://localhost:8000/api/v1/workforce/orchestration/chains
+
+# Full Phase 14 gate
+make verify-orchestration
+```
+
+In the UI, expand **Agent Theater** and click **Smoke chain** to run a 2-step orchestration demo. Task rows show `chain`, `step`, and parent links when orchestrated.
+
 ### Agent Theater (Phase 13)
 
 Dispatch subagent tasks to workforce roster members from the UI or API:
@@ -230,9 +268,9 @@ Covered:
 
 To run a subset: `python -m pytest tests/test_sync_and_chunker.py -q`
 
-## Status (v0.11.0 · Phase 13)
+## Status (v0.13.0 · Phase 15)
 
-Shipped across phases 1–13:
+Shipped across phases 1–15:
 - Full mock pipeline + WebRTC delivery + SSE fallback
 - Companion intelligence: avatars, voices, relationship modes, bond score, memory summarization
 - Session persistence, resume/reconnect, KGC sovereign fleet (backup/restore/policies/audit)
@@ -241,9 +279,11 @@ Shipped across phases 1–13:
 - Empire launch: Docker compose, liveness/readiness probes, `make verify-empire`
 - Real provider forge: contract specs, `/providers/forge`, live smoke, `make verify-forge`
 - Agent Theater: workforce task dispatch from UI, `/workforce/theater/*`, `make verify-theater`
+- Orchestration Forge: real skill executors, task chains, `/workforce/orchestration/*`, `make verify-orchestration`
+- Agent Lounge: morale panel, dispatch context injection, comment board, `make verify-lounge`
 
-Next (Phase 14+):
-- TBD — multi-agent orchestration and task chaining
+Next (Phase 16+):
+- Revenue Forge — earnings ledger, subscription share schema, donation routing
 
 Built with FastAPI + aiortc + pydantic.
 

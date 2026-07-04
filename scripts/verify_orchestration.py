@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 13 verification: pytest + Agent Theater dispatch smoke."""
+"""Phase 14 verification: pytest + Orchestration Forge chain smoke."""
 
 from __future__ import annotations
 
@@ -31,18 +31,15 @@ def _server_is_up(timeout: float = 2.0) -> bool:
         return False
 
 
-def _probe_theater() -> int:
-    print("=== Agent Theater API ===")
-    with httpx.Client(timeout=15.0) as client:
-        status = client.get(f"{BASE}/workforce/theater")
+def _probe_orchestration() -> int:
+    print("=== Orchestration Forge API ===")
+    with httpx.Client(timeout=20.0) as client:
+        status = client.get(f"{BASE}/workforce/orchestration")
         if status.status_code != 200:
-            print(f"/workforce/theater failed: {status.status_code}")
+            print(f"/workforce/orchestration failed: {status.status_code}")
             return 1
         status_body = status.json()
-        print(
-            f"  phase={status_body.get('deployment_phase')} "
-            f"team={status_body.get('dispatchable_count')}"
-        )
+        print(f"  phase={status_body.get('deployment_phase')} orchestration_enabled=True")
         if status_body.get("deployment_phase") != 15:
             print("Expected deployment_phase=15")
             return 1
@@ -56,45 +53,58 @@ def _probe_theater() -> int:
             (m for m in members if m.get("codename") == "AgentTheater_Dispatch_Sub_01"),
             None,
         )
-        if dispatch_member is None:
-            print("AgentTheater_Dispatch_Sub_01 missing from roster")
+        forge_member = next(
+            (m for m in members if m.get("codename") == "ProviderForge_Contract_Sub_01"),
+            None,
+        )
+        if dispatch_member is None or forge_member is None:
+            print("Required chain members missing from roster")
             return 1
 
-        dispatch = client.post(
-            f"{BASE}/workforce/theater/dispatch",
+        chain = client.post(
+            f"{BASE}/workforce/orchestration/chain",
             json={
-                "member_id": dispatch_member["id"],
-                "prompt": "Phase 13 theater smoke task",
-                "skill": "Workforce_TaskDispatch",
+                "steps": [
+                    {
+                        "member_id": dispatch_member["id"],
+                        "prompt": "Phase 14 orchestration smoke — fleet scan",
+                        "skill": "Workforce_TaskDispatch",
+                    },
+                    {
+                        "member_id": forge_member["id"],
+                        "prompt": "Phase 14 orchestration smoke — contract check",
+                        "skill": "RunPod_ContractSmoke_LiveForge",
+                    },
+                ]
             },
         )
-        if dispatch.status_code != 200:
-            print(f"/workforce/theater/dispatch failed: {dispatch.status_code}")
+        if chain.status_code != 200:
+            print(f"/workforce/orchestration/chain failed: {chain.status_code}")
             return 1
-        task = dispatch.json()
-        task_id = task.get("id")
-        print(f"  dispatched task={task_id} status={task.get('status')}")
+        chain_body = chain.json()
+        chain_id = chain_body.get("id")
+        print(f"  chain={chain_id} status={chain_body.get('status')}")
 
-        for _ in range(40):
-            detail = client.get(f"{BASE}/workforce/theater/tasks/{task_id}")
+        for _ in range(60):
+            detail = client.get(f"{BASE}/workforce/orchestration/chains/{chain_id}")
             if detail.status_code != 200:
-                print(f"task poll failed: {detail.status_code}")
+                print(f"chain poll failed: {detail.status_code}")
                 return 1
             current = detail.json()
             if current.get("status") == "completed":
-                print(f"  completed in {current.get('duration_ms')}ms")
+                print(f"  chain completed tasks={len(current.get('task_ids', []))}")
                 return 0
             if current.get("status") == "failed":
-                print(f"task failed: {current.get('error')}")
+                print(f"chain failed: {current.get('error')}")
                 return 1
             time.sleep(0.1)
 
-    print("Task did not complete in time")
+    print("Chain did not complete in time")
     return 1
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Phase 13 Agent Theater verification")
+    parser = argparse.ArgumentParser(description="Run Phase 14 Orchestration Forge verification")
     parser.add_argument("--start-server", action="store_true")
     parser.add_argument("--skip-probes", action="store_true")
     args = parser.parse_args()
@@ -103,7 +113,7 @@ def main() -> int:
         return 1
 
     if args.skip_probes:
-        print("PHASE 13 THEATER VERIFY OK (pytest only)")
+        print("PHASE 14 ORCHESTRATION VERIFY OK (pytest only)")
         return 0
 
     server_proc: subprocess.Popen | None = None
@@ -121,14 +131,14 @@ def main() -> int:
         else:
             if server_proc is not None:
                 server_proc.terminate()
-            print("Server failed to start for theater probes")
+            print("Server failed to start for orchestration probes")
             return 1
 
     code = 0
     if _server_is_up():
-        code = _probe_theater()
+        code = _probe_orchestration()
     else:
-        print("Server not running; skipping theater probes (use --start-server)")
+        print("Server not running; skipping orchestration probes (use --start-server)")
 
     if server_proc is not None:
         server_proc.terminate()
@@ -137,7 +147,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    print("PHASE 13 THEATER VERIFY OK")
+    print("PHASE 14 ORCHESTRATION VERIFY OK")
     return 0
 
 

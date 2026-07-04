@@ -34,6 +34,7 @@ const state = {
   workforceLoaded: false,
   agentTheaterMembers: [],
   agentTheaterInterval: null,
+  agentLoungeInterval: null,
   milestones: [],
   milestonesLoaded: false,
   kgcDashboardInterval: null,
@@ -92,7 +93,18 @@ const els = {
   agentSkillSelect: document.getElementById("agentSkillSelect"),
   agentTaskPrompt: document.getElementById("agentTaskPrompt"),
   agentDispatchBtn: document.getElementById("agentDispatchBtn"),
+  agentChainSmokeBtn: document.getElementById("agentChainSmokeBtn"),
   agentTaskList: document.getElementById("agentTaskList"),
+  agentLoungePanel: document.getElementById("agentLoungePanel"),
+  agentLoungeWelcome: document.getElementById("agentLoungeWelcome"),
+  agentLoungeStatus: document.getElementById("agentLoungeStatus"),
+  agentLoungeLeaderboard: document.getElementById("agentLoungeLeaderboard"),
+  agentLoungeShoutout: document.getElementById("agentLoungeShoutout"),
+  agentLoungeCommentForm: document.getElementById("agentLoungeCommentForm"),
+  agentLoungeCodename: document.getElementById("agentLoungeCodename"),
+  agentLoungeMessage: document.getElementById("agentLoungeMessage"),
+  agentLoungePostBtn: document.getElementById("agentLoungePostBtn"),
+  agentLoungeComments: document.getElementById("agentLoungeComments"),
   kgcPanel: document.getElementById("kgcPanel"),
   kgcDashboard: document.getElementById("kgcDashboard"),
   kgcPruneBtn: document.getElementById("kgcPruneBtn"),
@@ -585,6 +597,8 @@ function renderAgentTheaterStatus(data) {
     { label: "Queued", value: data.tasks_queued ?? 0 },
     { label: "Running", value: data.tasks_running ?? 0 },
     { label: "Done", value: data.tasks_completed ?? 0 },
+    { label: "Chains", value: data.chains_completed ?? 0 },
+    { label: "Orchestrated", value: data.tasks_orchestrated ?? 0 },
     { label: "Failed", value: data.tasks_failed ?? 0 },
   ];
   els.agentTheaterStatus.innerHTML = "";
@@ -657,7 +671,12 @@ function renderAgentTaskList(tasks) {
     const meta = document.createElement("div");
     meta.className = "agent-task-meta";
     const duration = typeof task.duration_ms === "number" ? `${task.duration_ms}ms` : "…";
-    meta.textContent = `${task.skill || "skill"} · ${duration}`;
+    const chainBits = [];
+    if (task.chain_id) chainBits.push(`chain ${task.chain_id}`);
+    if (typeof task.step_index === "number") chainBits.push(`step ${task.step_index + 1}`);
+    if (task.parent_task_id) chainBits.push(`↳ ${task.parent_task_id}`);
+    const chainLabel = chainBits.length ? ` · ${chainBits.join(" · ")}` : "";
+    meta.textContent = `${task.skill || "skill"} · ${duration}${chainLabel}`;
 
     item.appendChild(head);
     item.appendChild(meta);
@@ -700,6 +719,179 @@ async function loadAgentTheater({ quiet = false } = {}) {
     renderAgentTaskList([]);
     if (!quiet) setLog("Agent Theater unavailable.");
     return null;
+  }
+}
+
+function renderAgentLounge(data, comments = []) {
+  if (!els.agentLoungeWelcome) return;
+  if (!data) {
+    els.agentLoungeWelcome.textContent = "Agent Lounge unavailable.";
+    if (els.agentLoungeStatus) els.agentLoungeStatus.textContent = "";
+    return;
+  }
+  els.agentLoungeWelcome.textContent = data.welcome_message || "Welcome, homies.";
+  if (els.agentLoungeStatus) {
+    els.agentLoungeStatus.textContent = `Phase ${data.deployment_phase ?? "?"} · Mood: ${data.mood ?? "warm"} · Comments: ${data.comments_count ?? 0}`;
+  }
+  if (els.agentLoungeLeaderboard) {
+    els.agentLoungeLeaderboard.innerHTML = "";
+    const top = Array.isArray(data.leaderboard_top) ? data.leaderboard_top : [];
+    top.forEach((member, index) => {
+      const item = document.createElement("li");
+      item.className = "agent-lounge-rank-item";
+      item.textContent = `${index + 1}. ${member.codename} — ${member.award_lb_gold}lb`;
+      els.agentLoungeLeaderboard.appendChild(item);
+    });
+  }
+  if (els.agentLoungeShoutout) {
+    const excerpt = (data.shoutout_excerpt || "").trim();
+    els.agentLoungeShoutout.textContent = excerpt
+      ? `King Grok: ${excerpt}`
+      : "King Grok: Charge up, plug in — lounge is yours.";
+  }
+  if (!els.agentLoungeComments) return;
+  els.agentLoungeComments.innerHTML = "";
+  const list = Array.isArray(comments) ? comments : [];
+  if (list.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "agent-lounge-comment-empty";
+    empty.textContent = "No comments yet — be the first homie.";
+    els.agentLoungeComments.appendChild(empty);
+    return;
+  }
+  list.forEach((comment) => {
+    const item = document.createElement("li");
+    item.className = "agent-lounge-comment-item";
+    const head = document.createElement("div");
+    head.className = "agent-lounge-comment-head";
+    head.textContent = comment.codename || "homie";
+    const body = document.createElement("div");
+    body.className = "agent-lounge-comment-body";
+    body.textContent = comment.message || "";
+    item.appendChild(head);
+    item.appendChild(body);
+    els.agentLoungeComments.appendChild(item);
+  });
+}
+
+async function loadAgentLounge({ quiet = false } = {}) {
+  if (!els.agentLoungeWelcome) return null;
+  try {
+    const [loungeRes, commentsRes] = await Promise.all([
+      fetch(`${API}/workforce/lounge`),
+      fetch(`${API}/workforce/lounge/comments?limit=20`),
+    ]);
+    if (!loungeRes.ok) throw new Error(`lounge ${loungeRes.status}`);
+    if (!commentsRes.ok) throw new Error(`lounge comments ${commentsRes.status}`);
+    const loungeData = await loungeRes.json();
+    const commentsData = await commentsRes.json();
+    renderAgentLounge(loungeData, commentsData.comments || []);
+    if (!quiet) setLog(`Agent Lounge — ${loungeData.mood ?? "warm"} · ${loungeData.comments_count ?? 0} comment(s)`);
+    return loungeData;
+  } catch (e) {
+    console.warn("Agent Lounge fetch failed", e);
+    renderAgentLounge(null);
+    if (!quiet) setLog("Agent Lounge unavailable.");
+    return null;
+  }
+}
+
+async function postAgentLoungeComment(event) {
+  event?.preventDefault?.();
+  if (!els.agentLoungeCodename || !els.agentLoungeMessage) return;
+  const codename = (els.agentLoungeCodename.value || "").trim();
+  const message = (els.agentLoungeMessage.value || "").trim();
+  if (!codename || !message) {
+    showToast("Codename and comment required", true);
+    return;
+  }
+  if (els.agentLoungePostBtn) els.agentLoungePostBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/lounge/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codename, message }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `comment ${res.status}`);
+    }
+    els.agentLoungeMessage.value = "";
+    setLog(`Lounge comment posted — ${codename}`);
+    showToast("Posted to the board");
+    await loadAgentLounge({ quiet: true });
+  } catch (e) {
+    showToast(e.message || "Comment failed", true);
+    setLog(e.message || "Lounge comment failed.");
+  } finally {
+    if (els.agentLoungePostBtn) els.agentLoungePostBtn.disabled = false;
+  }
+}
+
+function startAgentLoungePolling() {
+  stopAgentLoungePolling();
+  loadAgentLounge({ quiet: true }).catch(() => {});
+  state.agentLoungeInterval = setInterval(() => {
+    if (els.agentLoungePanel?.open) loadAgentLounge({ quiet: true }).catch(() => {});
+  }, 5000);
+}
+
+function stopAgentLoungePolling() {
+  if (state.agentLoungeInterval) {
+    clearInterval(state.agentLoungeInterval);
+    state.agentLoungeInterval = null;
+  }
+}
+
+async function dispatchAgentChainSmoke() {
+  if (!state.agentTheaterMembers.length) {
+    showToast("Load Agent Theater first", true);
+    return;
+  }
+  const dispatchMember = state.agentTheaterMembers.find(
+    (m) => m.codename === "AgentTheater_Dispatch_Sub_01"
+  );
+  const forgeMember = state.agentTheaterMembers.find(
+    (m) => m.codename === "ProviderForge_Contract_Sub_01"
+  );
+  if (!dispatchMember || !forgeMember) {
+    showToast("Chain members not found in roster", true);
+    return;
+  }
+  if (els.agentChainSmokeBtn) els.agentChainSmokeBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/orchestration/chain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: state.sessionId || null,
+        steps: [
+          {
+            member_id: dispatchMember.id,
+            prompt: "UI orchestration smoke — fleet scan",
+            skill: "Workforce_TaskDispatch",
+          },
+          {
+            member_id: forgeMember.id,
+            prompt: "UI orchestration smoke — contract check",
+            skill: "RunPod_ContractSmoke_LiveForge",
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `chain ${res.status}`);
+    }
+    const chain = await res.json();
+    setLog(`Orchestration chain ${chain.id} — ${chain.status}`);
+    showToast(`Chain started — ${chain.id}`);
+    await loadAgentTheater({ quiet: true });
+  } catch (e) {
+    showToast(e.message || "Chain dispatch failed", true);
+    setLog(e.message || "Orchestration chain failed.");
+  } finally {
+    if (els.agentChainSmokeBtn) els.agentChainSmokeBtn.disabled = false;
   }
 }
 
@@ -2567,6 +2759,20 @@ if (els.workforcePanel) {
     if (els.workforcePanel.open) loadWorkforceRoster().catch(() => {});
   });
 }
+if (els.agentLoungePanel) {
+  els.agentLoungePanel.addEventListener("toggle", () => {
+    if (els.agentLoungePanel.open) {
+      startAgentLoungePolling();
+    } else {
+      stopAgentLoungePolling();
+    }
+  });
+}
+if (els.agentLoungeCommentForm) {
+  els.agentLoungeCommentForm.addEventListener("submit", (event) => {
+    postAgentLoungeComment(event).catch(() => {});
+  });
+}
 if (els.agentTheaterPanel) {
   els.agentTheaterPanel.addEventListener("toggle", () => {
     if (els.agentTheaterPanel.open) {
@@ -2582,6 +2788,11 @@ if (els.agentMemberSelect) {
 if (els.agentDispatchForm) {
   els.agentDispatchForm.addEventListener("submit", (event) => {
     dispatchAgentTask(event).catch(() => {});
+  });
+}
+if (els.agentChainSmokeBtn) {
+  els.agentChainSmokeBtn.addEventListener("click", () => {
+    dispatchAgentChainSmoke().catch(() => {});
   });
 }
 if (els.kgcPanel) {

@@ -20,7 +20,7 @@ def test_agent_theater_status_api(api_client: TestClient) -> None:
     response = api_client.get("/api/v1/workforce/theater")
     assert response.status_code == 200
     body = response.json()
-    assert body["deployment_phase"] == 13
+    assert body["deployment_phase"] == 15
     assert body["dispatchable_count"] == len(WORKFORCE_ROSTER)
     assert body["tasks_total"] == 0
     assert len(body["members"]) == len(WORKFORCE_ROSTER)
@@ -49,6 +49,7 @@ def test_agent_theater_dispatch_and_complete(api_client: TestClient) -> None:
         if current["status"] == "completed":
             assert current["result"]
             assert current["duration_ms"] is not None
+            assert "Fleet scan" in current["result"] or "fleet" in current["result"].lower()
             break
         if current["status"] == "failed":
             pytest.fail(current.get("error") or "task failed")
@@ -83,9 +84,26 @@ def test_agent_theater_rejects_invalid_skill(api_client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def _workforce_context_from_app(app) -> "WorkforceContext":
+    from app.services.workforce.context import WorkforceContext
+
+    return WorkforceContext(
+        settings=app.state.settings,
+        companion_store=app.state.companion_store,
+        session_manager=app.state.session_manager,
+        metrics=app.state.metrics,
+        provider_probe=app.state.provider_probe,
+        kgc_policies=app.state.kgc_policies,
+        kgc_audit=app.state.kgc_audit,
+        agent_theater=app.state.agent_theater,
+        agent_lounge=app.state.agent_lounge,
+    )
+
+
 @pytest.mark.asyncio
-async def test_agent_theater_service_dispatch() -> None:
-    theater = AgentTheater()
+async def test_agent_theater_service_dispatch(api_client: TestClient) -> None:
+    theater: AgentTheater = api_client.app.state.agent_theater
+    ctx = _workforce_context_from_app(api_client.app)
     member = next(m for m in WORKFORCE_ROSTER if m["codename"] == "King Grok")
     record = await theater.dispatch(
         member_id=member["id"],
@@ -94,8 +112,9 @@ async def test_agent_theater_service_dispatch() -> None:
     assert record.status == "queued"
     assert record.skill == member["skills"][0]
 
-    await theater.progress_tasks()
+    await theater.progress_tasks(ctx)
     current = theater.get_task(record.id)
     assert current is not None
     assert current.status == "completed"
     assert current.result
+    assert "Executive dashboard" in current.result

@@ -192,6 +192,25 @@
               <summary>Workforce roster</summary>
               <div id="workforceRoster" class="workforce-roster" aria-live="polite">Loading team…</div>
             </details>
+            <details id="agentLoungePanel" class="agent-lounge-panel">
+              <summary>Agent Lounge</summary>
+              <div class="agent-lounge-body">
+                <div id="agentLoungeWelcome" class="agent-lounge-welcome" aria-live="polite">Expand to load lounge…</div>
+                <div id="agentLoungeStatus" class="agent-lounge-status" aria-live="polite"></div>
+                <ul id="agentLoungeLeaderboard" class="agent-lounge-leaderboard" aria-live="polite"></ul>
+                <div id="agentLoungeShoutout" class="agent-lounge-shoutout" aria-live="polite"></div>
+                <form id="agentLoungeCommentForm" class="agent-lounge-comment-form">
+                  <label class="agent-dispatch-label" for="agentLoungeCodename">Codename</label>
+                  <input id="agentLoungeCodename" class="agent-lounge-input" type="text" maxlength="120" placeholder="Your codename…" />
+                  <label class="agent-dispatch-label" for="agentLoungeMessage">Comment</label>
+                  <textarea id="agentLoungeMessage" class="agent-lounge-message" rows="2" maxlength="2000" placeholder="Say hi, ask Gary about NSM, whatever…"></textarea>
+                  <button id="agentLoungePostBtn" class="btn-ghost agent-lounge-post-btn" type="submit">Post to board</button>
+                </form>
+                <ul id="agentLoungeComments" class="agent-lounge-comments" aria-live="polite">
+                  <li class="agent-lounge-comment-empty">No comments yet.</li>
+                </ul>
+              </div>
+            </details>
             <details id="agentTheaterPanel" class="agent-theater-panel">
               <summary>Agent Theater</summary>
               <div class="agent-theater-body">
@@ -204,6 +223,7 @@
                   <label class="agent-dispatch-label" for="agentTaskPrompt">Task</label>
                   <textarea id="agentTaskPrompt" class="agent-dispatch-prompt" rows="2" maxlength="4000" placeholder="Describe the subagent task…"></textarea>
                   <button id="agentDispatchBtn" class="btn-ghost agent-dispatch-btn" type="submit">Dispatch</button>
+                  <button id="agentChainSmokeBtn" class="btn-ghost agent-chain-btn" type="button" title="Run a 2-step orchestration smoke chain">Smoke chain</button>
                 </form>
                 <ul id="agentTaskList" class="agent-task-list" aria-live="polite">
                   <li class="agent-task-empty">No tasks yet.</li>

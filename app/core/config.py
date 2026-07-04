@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "ProCharacters Cloud"
-    app_version: str = "0.11.0"
-    deployment_phase: int = 13
+    app_version: str = "0.13.0"
+    deployment_phase: int = 15
     debug: bool = False
 
     host: str = "0.0.0.0"
@@ -85,6 +85,8 @@ class Settings(BaseSettings):
     companion_persist_enabled: bool = True
     companion_persist_path: str = "data/companion_sessions.json"
     kgc_policies_path: str = "data/kgc_policies.json"
+    agent_lounge_path: str = "data/agent_lounge.md"
+    agent_lounge_comments_path: str = "data/agent_lounge_comments.json"
     companion_session_ttl_hours: int = 72
     companion_relationship_modes: list[str] = [
         "friendly",

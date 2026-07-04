@@ -904,6 +904,119 @@ textarea:focus {
   font-weight: 600;
 }
 
+.agent-lounge-panel {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.agent-lounge-panel summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  color: #ff9f6b;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.agent-lounge-panel summary:hover {
+  opacity: 0.85;
+}
+
+.agent-lounge-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.agent-lounge-welcome {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 159, 107, 0.1);
+  border: 1px solid rgba(255, 159, 107, 0.25);
+  color: #ffd8c2;
+  line-height: 1.4;
+}
+
+.agent-lounge-status {
+  font-size: 0.68rem;
+  opacity: 0.9;
+}
+
+.agent-lounge-leaderboard {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-lounge-rank-item {
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.agent-lounge-shoutout {
+  padding: 6px 8px;
+  border-left: 2px solid rgba(255, 159, 107, 0.5);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  opacity: 0.95;
+}
+
+.agent-lounge-comment-form {
+  display: grid;
+  gap: 6px;
+}
+
+.agent-lounge-input,
+.agent-lounge-message {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  padding: 6px 8px;
+  font: inherit;
+}
+
+.agent-lounge-post-btn {
+  justify-self: start;
+}
+
+.agent-lounge-comments {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.agent-lounge-comment-item {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.agent-lounge-comment-head {
+  font-weight: 600;
+  color: #ff9f6b;
+  margin-bottom: 2px;
+}
+
+.agent-lounge-comment-body {
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.agent-lounge-comment-empty {
+  opacity: 0.7;
+  font-style: italic;
+}
+
 .agent-theater-panel {
   margin-top: 4px;
   font-size: 0.72rem;
@@ -973,9 +1086,14 @@ textarea:focus {
   min-height: 44px;
 }
 
-.agent-dispatch-btn {
+.agent-dispatch-btn,
+.agent-chain-btn {
   justify-self: start;
   margin-top: 2px;
+}
+
+.agent-chain-btn {
+  margin-left: 8px;
 }
 
 .agent-task-list {
