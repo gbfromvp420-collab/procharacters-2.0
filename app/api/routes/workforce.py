@@ -61,7 +61,13 @@ from app.models.workforce import (
     TicketedShowsSchema,
     ResidualEntryRequest,
     ResidualEntryResponse,
+    EnvChecklistItemResponse,
     HardeningCheckResponse,
+    InnovationLaneListResponse,
+    InnovationLaneResponse,
+    InnovationResponse,
+    RealProviderReadinessItem,
+    RealProviderReadinessResponse,
     HardeningListResponse,
     HorizontalScaleSchema,
     MultiTenantSchema,
@@ -1222,6 +1228,62 @@ async def crown_creative_sessions(request: Request) -> CrownCreativeSessionListR
         for session in crown.list_creative_sessions()
     ]
     return CrownCreativeSessionListResponse(sessions=sessions, count=len(sessions))
+
+
+@router.get(
+    "/innovation",
+    response_model=InnovationResponse,
+    summary="Innovation mode status — active lane and real-provider readiness",
+)
+async def innovation_status(request: Request) -> InnovationResponse:
+    innovation = request.app.state.innovation_lanes
+    settings = request.app.state.settings
+    snap = innovation.snapshot(
+        deployment_phase=settings.deployment_phase,
+        app_version=settings.app_version,
+        settings=settings,
+    )
+    return InnovationResponse(**snap)  # type: ignore[arg-type]
+
+
+@router.get(
+    "/innovation/lanes",
+    response_model=InnovationLaneListResponse,
+    summary="Four innovation lanes — Real, Soul, $, Live",
+)
+async def innovation_lanes_list(request: Request) -> InnovationLaneListResponse:
+    innovation = request.app.state.innovation_lanes
+    lanes = [InnovationLaneResponse(**item) for item in innovation.list_lanes()]
+    schema = innovation.get_schema()
+    return InnovationLaneListResponse(
+        lanes=lanes,
+        count=len(lanes),
+        active_lane_id=str(schema.get("active_lane", "real_providers")),
+    )
+
+
+@router.get(
+    "/innovation/real",
+    response_model=RealProviderReadinessResponse,
+    summary="Lane 1 — Real Provider Live readiness and RunPod .env checklist",
+)
+async def innovation_real_providers(request: Request) -> RealProviderReadinessResponse:
+    innovation = request.app.state.innovation_lanes
+    settings = request.app.state.settings
+    raw = innovation.build_real_provider_readiness(settings=settings)
+    return RealProviderReadinessResponse(
+        lane_id=raw["lane_id"],
+        lane_title=raw["lane_title"],
+        providers=[RealProviderReadinessItem(**p) for p in raw["providers"]],
+        remote_providers=raw["remote_providers"],
+        configured_providers=raw["configured_providers"],
+        all_real_ready=raw["all_real_ready"],
+        provider_gate_enabled=raw["provider_gate_enabled"],
+        env_checklist=[EnvChecklistItemResponse(**item) for item in raw["env_checklist"]],
+        activation_steps=raw["activation_steps"],
+        forge_status_url=raw["forge_status_url"],
+        forge_smoke_url=raw["forge_smoke_url"],
+    )
 
 
 @router.get(

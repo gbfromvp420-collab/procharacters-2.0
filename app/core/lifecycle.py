@@ -20,6 +20,7 @@ from app.services.workforce.lounge import AgentLounge
 from app.services.workforce.character_forge import CharacterForge
 from app.services.workforce.live_stage import LiveStage
 from app.services.workforce.crown_completion import CrownCompletion
+from app.services.workforce.innovation import InnovationLanes
 from app.services.workforce.swarm_payout import SwarmPayout
 from app.services.workforce.sovereign_scale import SovereignScale
 from app.services.workforce.revenue import RevenueForge
@@ -99,6 +100,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         creative_sessions_path=settings.crown_creative_sessions_path,
     )
     swarm_payout = SwarmPayout(schema_path=settings.swarm_payout_schema_path)
+    innovation_lanes = InnovationLanes(schema_path=settings.innovation_lanes_path)
 
     app.state.settings = settings
     app.state.metrics = metrics
@@ -119,6 +121,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.sovereign_scale = sovereign_scale
     app.state.crown_completion = crown_completion
     app.state.swarm_payout = swarm_payout
+    app.state.innovation_lanes = innovation_lanes
 
     prune_task: asyncio.Task[None] | None = None
     if settings.companion_persist_enabled:

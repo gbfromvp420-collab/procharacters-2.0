@@ -103,6 +103,7 @@ class Settings(BaseSettings):
     crown_gifts_granted_path: str = "data/crown_gifts_granted.json"
     crown_creative_sessions_path: str = "data/crown_creative_sessions.json"
     swarm_payout_schema_path: str = "data/swarm_payout_schema.json"
+    innovation_lanes_path: str = "data/innovation_lanes.json"
     companion_session_ttl_hours: int = 72
     companion_relationship_modes: list[str] = [
         "friendly",

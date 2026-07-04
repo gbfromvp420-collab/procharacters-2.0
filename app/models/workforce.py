@@ -816,6 +816,64 @@ class SwarmPerformanceBonusListResponse(BaseModel):
     total_usd: float
 
 
+class InnovationLaneResponse(BaseModel):
+    id: str
+    rank: int
+    label: str
+    title: str
+    summary: str
+    status: str
+
+
+class InnovationLaneListResponse(BaseModel):
+    lanes: list[InnovationLaneResponse]
+    count: int
+    active_lane_id: str
+
+
+class RealProviderReadinessItem(BaseModel):
+    provider: str
+    mode: str
+    base_url: str
+    is_remote_mode: bool
+    endpoint_configured: bool
+    ready: bool
+    next_step: str
+
+
+class EnvChecklistItemResponse(BaseModel):
+    key: str
+    value: str
+    note: str
+
+
+class RealProviderReadinessResponse(BaseModel):
+    lane_id: str
+    lane_title: str
+    providers: list[RealProviderReadinessItem]
+    remote_providers: int
+    configured_providers: int
+    all_real_ready: bool
+    provider_gate_enabled: bool
+    env_checklist: list[EnvChecklistItemResponse]
+    activation_steps: list[str]
+    forge_status_url: str
+    forge_smoke_url: str
+
+
+class InnovationResponse(BaseModel):
+    deployment_phase: int
+    app_version: str
+    empire_version: str
+    innovation_mode: bool
+    active_lane_id: str
+    active_lane_title: str
+    lanes_total: int
+    real_providers_ready: bool
+    configured_providers: int
+    schema_path: str
+
+
 class SwarmPayoutResponse(BaseModel):
     deployment_phase: int
     app_version: str

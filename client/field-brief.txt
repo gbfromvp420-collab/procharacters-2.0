@@ -5,13 +5,23 @@ Boss Sr. · King Grok · 26 workers
 SAVE THIS FILE on your phone (download, email to self, Files app).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-INNOVATION LANES (pick one when ready)
+INNOVATION — ACTIVE NOW
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1 · REAL — Live RunPod providers (LLM/TTS/Video), not mock
-2 · SOUL — Companion depth: modes, bond, intimacy UX (Assist's lane)
-3 · $ — Character Forge + Revenue Forge, real money
-4 · LIVE — Live Stage, ticketed shows, public launch
+LANE 1 · REAL (in progress)
+  Switch .env from mock → RunPod:
+  LLM_PROVIDER=openai_compatible
+  TTS_PROVIDER=http
+  VIDEO_PROVIDER=http
+  + real BASE_URLs and API keys
+  Then: POST /api/v1/providers/forge/smoke
+
+API: /api/v1/workforce/innovation/real
+
+OTHER LANES (queued)
+2 · SOUL — Companion depth
+3 · $ — Characters + revenue
+4 · LIVE — Stage + launch
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TODAY'S WINS
