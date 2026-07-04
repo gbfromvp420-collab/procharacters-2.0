@@ -861,6 +861,49 @@ class RealProviderReadinessResponse(BaseModel):
     forge_smoke_url: str
 
 
+class RunPodWiringReadinessResponse(BaseModel):
+    enabled: bool
+    wired: bool
+    llm_ready: bool
+    tts_ready: bool
+    video_ready: bool
+    all_ready: bool
+    pod_label: str = ""
+
+
+class RunPodEffectiveProviderResponse(BaseModel):
+    provider: str
+    base_url: str
+    model: str | None = None
+
+
+class RunPodWiringResponse(BaseModel):
+    wiring_path: str
+    readiness: RunPodWiringReadinessResponse
+    notes: str = ""
+    effective_providers: dict[str, RunPodEffectiveProviderResponse]
+    env_snippet: str | None = None
+    message: str = ""
+
+
+class RunPodWireRequest(BaseModel):
+    llm_base_url: str | None = Field(default=None, max_length=500)
+    tts_base_url: str | None = Field(default=None, max_length=500)
+    video_base_url: str | None = Field(default=None, max_length=500)
+    api_key: str | None = Field(default=None, max_length=500)
+    llm_api_key: str | None = Field(default=None, max_length=500)
+    tts_api_key: str | None = Field(default=None, max_length=500)
+    video_api_key: str | None = Field(default=None, max_length=500)
+    enabled: bool | None = None
+
+
+class RunPodWireResponse(BaseModel):
+    wired: bool
+    readiness: RunPodWiringReadinessResponse
+    env_snippet: str | None = None
+    message: str
+
+
 class InnovationResponse(BaseModel):
     deployment_phase: int
     app_version: str

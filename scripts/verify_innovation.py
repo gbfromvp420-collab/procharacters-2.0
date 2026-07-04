@@ -57,6 +57,13 @@ def _probe_innovation() -> int:
             print(f"/workforce/innovation/real failed: {real.status_code}")
             return 1
         print(f"  providers={len(real.json().get('providers', []))} checklist items")
+
+        wiring = client.get(f"{BASE}/workforce/innovation/wiring")
+        if wiring.status_code != 200:
+            print(f"/workforce/innovation/wiring failed: {wiring.status_code}")
+            return 1
+        w = wiring.json().get("readiness", {})
+        print(f"  wiring wired={w.get('wired')} ready={w.get('all_ready')}")
         return 0
 
 

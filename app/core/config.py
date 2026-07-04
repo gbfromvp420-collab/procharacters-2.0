@@ -104,6 +104,7 @@ class Settings(BaseSettings):
     crown_creative_sessions_path: str = "data/crown_creative_sessions.json"
     swarm_payout_schema_path: str = "data/swarm_payout_schema.json"
     innovation_lanes_path: str = "data/innovation_lanes.json"
+    runpod_wiring_path: str = "data/runpod_wiring.json"
     companion_session_ttl_hours: int = 72
     companion_relationship_modes: list[str] = [
         "friendly",
@@ -126,4 +127,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    from app.core.runpod_wiring import apply_runpod_wiring
+
+    return apply_runpod_wiring(Settings())

@@ -8,13 +8,20 @@ SAVE THIS FILE on your phone (download, email to self, Files app).
 INNOVATION — ACTIVE NOW
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-LANE 1 · REAL (in progress)
-  Switch .env from mock → RunPod:
-  LLM_PROVIDER=openai_compatible
-  TTS_PROVIDER=http
-  VIDEO_PROVIDER=http
-  + real BASE_URLs and API keys
-  Then: POST /api/v1/providers/forge/smoke
+LANE 1 · REAL (wire — no new RunPod needed)
+  If you already have pods: paste 3 Connect proxy URLs
+  1 · LLM (vLLM) — ends with /v1
+  2 · TTS — POST /synthesize
+  3 · Video — POST /generate
+
+  WIRE (pick one):
+  · POST /api/v1/workforce/innovation/wire
+    { llm_base_url, tts_base_url, video_base_url, enabled: true }
+  · python scripts/wire_runpod.py --llm URL --tts URL --video URL --enable
+  · Edit data/runpod_wiring.json → enabled: true
+
+  CHECK: GET /api/v1/workforce/innovation/wiring
+  SMOKE: POST /api/v1/providers/forge/smoke
 
 API: /api/v1/workforce/innovation/real
 

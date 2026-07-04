@@ -68,6 +68,11 @@ from app.models.workforce import (
     InnovationResponse,
     RealProviderReadinessItem,
     RealProviderReadinessResponse,
+    RunPodEffectiveProviderResponse,
+    RunPodWireRequest,
+    RunPodWireResponse,
+    RunPodWiringReadinessResponse,
+    RunPodWiringResponse,
     HardeningListResponse,
     HorizontalScaleSchema,
     MultiTenantSchema,
@@ -1283,6 +1288,89 @@ async def innovation_real_providers(request: Request) -> RealProviderReadinessRe
         activation_steps=raw["activation_steps"],
         forge_status_url=raw["forge_status_url"],
         forge_smoke_url=raw["forge_smoke_url"],
+    )
+
+
+@router.get(
+    "/innovation/wiring",
+    response_model=RunPodWiringResponse,
+    summary="RunPod wiring file — paste URLs once, app goes real",
+)
+async def innovation_runpod_wiring(request: Request) -> RunPodWiringResponse:
+    from app.core.runpod_wiring import build_wiring_report
+
+    settings = request.app.state.settings
+    report = build_wiring_report(settings)
+    readiness = report["readiness"]
+    effective = report["effective_providers"]
+    if readiness.get("wired"):
+        msg = "RunPod wired — real providers active"
+    elif readiness.get("all_ready"):
+        msg = "URLs ready — set enabled:true in runpod_wiring.json or POST /innovation/wire"
+    else:
+        msg = "Paste LLM, TTS, and Video RunPod proxy URLs to wire"
+    return RunPodWiringResponse(
+        wiring_path=report["wiring_path"],
+        readiness=RunPodWiringReadinessResponse(**readiness),
+        notes=report.get("notes", ""),
+        effective_providers={
+            key: RunPodEffectiveProviderResponse(**value) for key, value in effective.items()
+        },
+        env_snippet=report.get("env_snippet"),
+        message=msg,
+    )
+
+
+@router.post(
+    "/innovation/wire",
+    response_model=RunPodWireResponse,
+    summary="Wire RunPod URLs — saves runpod_wiring.json and activates real providers",
+)
+async def innovation_wire_runpod(
+    request: Request,
+    body: RunPodWireRequest,
+) -> RunPodWireResponse:
+    from app.core.config import get_settings
+    from app.core.runpod_wiring import build_wiring_report, update_wiring_urls, wiring_readiness
+
+    settings = request.app.state.settings
+    update_wiring_urls(
+        path=settings.runpod_wiring_path,
+        llm_base_url=body.llm_base_url,
+        tts_base_url=body.tts_base_url,
+        video_base_url=body.video_base_url,
+        api_key=body.api_key,
+        llm_api_key=body.llm_api_key,
+        tts_api_key=body.tts_api_key,
+        video_api_key=body.video_api_key,
+        enabled=body.enabled,
+    )
+    cache_clear = getattr(get_settings, "cache_clear", None)
+    if callable(cache_clear):
+        cache_clear()
+    fresh = get_settings()
+    request.app.state.settings = fresh
+    report = build_wiring_report(fresh)
+    readiness = report["readiness"]
+    wired = bool(readiness.get("wired"))
+    if wired:
+        message = "RunPod wired — real providers active. Run POST /api/v1/providers/forge/smoke"
+    elif readiness.get("all_ready"):
+        message = "URLs saved — set enabled:true or POST again with enabled=true"
+    else:
+        missing = []
+        if not readiness.get("llm_ready"):
+            missing.append("LLM URL")
+        if not readiness.get("tts_ready"):
+            missing.append("TTS URL")
+        if not readiness.get("video_ready"):
+            missing.append("Video URL")
+        message = f"Partial wire — still need: {', '.join(missing)}"
+    return RunPodWireResponse(
+        wired=wired,
+        readiness=RunPodWiringReadinessResponse(**readiness),
+        env_snippet=report.get("env_snippet"),
+        message=message,
     )
 
 
