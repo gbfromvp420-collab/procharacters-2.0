@@ -40,8 +40,8 @@ def _probe_orchestration() -> int:
             return 1
         status_body = status.json()
         print(f"  phase={status_body.get('deployment_phase')} orchestration_enabled=True")
-        if status_body.get("deployment_phase") != 15:
-            print("Expected deployment_phase=15")
+        if status_body.get("deployment_phase") != 20:
+            print("Expected deployment_phase=20")
             return 1
 
         roster = client.get(f"{BASE}/workforce/roster")

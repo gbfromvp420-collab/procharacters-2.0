@@ -1,6 +1,6 @@
 # ProCharacters 2.0 - practical make targets for verification
 
-.PHONY: help install run test demo verify-all verify-empire verify-forge verify-theater verify-orchestration verify-lounge docker-build docker-up docker-down clean
+.PHONY: help install run test demo verify-all verify-empire verify-forge verify-theater verify-orchestration verify-lounge verify-revenue verify-character verify-live verify-scale verify-empire-complete docker-build docker-up docker-down clean
 
 help:
 	@echo "ProCharacters 2.0 make targets:"
@@ -15,6 +15,11 @@ help:
 	@echo "  make verify-theater Phase 13: pytest + agent theater dispatch"
 	@echo "  make verify-orchestration Phase 14: pytest + orchestration chain smoke"
 	@echo "  make verify-lounge       Phase 15: pytest + agent lounge API"
+	@echo "  make verify-revenue      Phase 16: pytest + revenue forge API"
+	@echo "  make verify-character    Phase 17: pytest + character forge API"
+	@echo "  make verify-live         Phase 18: pytest + live stage API"
+	@echo "  make verify-scale        Phase 19: pytest + sovereign scale API"
+	@echo "  make verify-empire-complete Phase 20: pytest + crown completion v1.0"
 	@echo "  make docker-build   Build production image"
 	@echo "  make docker-up      Start docker compose stack"
 	@echo "  make docker-down    Stop docker compose stack"
@@ -53,6 +58,21 @@ verify-orchestration:
 
 verify-lounge:
 	python scripts/verify_lounge.py --start-server
+
+verify-revenue:
+	python scripts/verify_revenue.py --start-server
+
+verify-character:
+	python scripts/verify_character.py --start-server
+
+verify-live:
+	python scripts/verify_live.py --start-server
+
+verify-scale:
+	python scripts/verify_scale.py --start-server
+
+verify-empire-complete:
+	python scripts/verify_empire_complete.py --start-server
 
 docker-build:
 	docker compose build

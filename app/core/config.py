@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "ProCharacters Cloud"
-    app_version: str = "0.13.0"
-    deployment_phase: int = 15
+    app_version: str = "1.0.0"
+    deployment_phase: int = 20
     debug: bool = False
 
     host: str = "0.0.0.0"
@@ -87,6 +87,22 @@ class Settings(BaseSettings):
     kgc_policies_path: str = "data/kgc_policies.json"
     agent_lounge_path: str = "data/agent_lounge.md"
     agent_lounge_comments_path: str = "data/agent_lounge_comments.json"
+    revenue_schema_path: str = "data/revenue_schema.json"
+    revenue_ledger_path: str = "data/revenue_ledger.json"
+    character_forge_schema_path: str = "data/character_forge_schema.json"
+    character_forge_registry_path: str = "data/character_forge_registry.json"
+    character_forge_residuals_path: str = "data/character_forge_residuals.json"
+    live_stage_schema_path: str = "data/live_stage_schema.json"
+    live_stage_sessions_path: str = "data/live_stage_sessions.json"
+    live_stage_billing_path: str = "data/live_stage_billing.json"
+    sovereign_scale_schema_path: str = "data/sovereign_scale_schema.json"
+    sovereign_tenants_path: str = "data/sovereign_tenants.json"
+    sovereign_nodes_path: str = "data/sovereign_nodes.json"
+    crown_completion_schema_path: str = "data/crown_completion_schema.json"
+    crown_cosign_path: str = "data/crown_cosign.json"
+    crown_gifts_granted_path: str = "data/crown_gifts_granted.json"
+    crown_creative_sessions_path: str = "data/crown_creative_sessions.json"
+    swarm_payout_schema_path: str = "data/swarm_payout_schema.json"
     companion_session_ttl_hours: int = 72
     companion_relationship_modes: list[str] = [
         "friendly",

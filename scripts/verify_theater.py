@@ -43,8 +43,8 @@ def _probe_theater() -> int:
             f"  phase={status_body.get('deployment_phase')} "
             f"team={status_body.get('dispatchable_count')}"
         )
-        if status_body.get("deployment_phase") != 15:
-            print("Expected deployment_phase=15")
+        if status_body.get("deployment_phase") != 20:
+            print("Expected deployment_phase=20")
             return 1
 
         roster = client.get(f"{BASE}/workforce/roster")

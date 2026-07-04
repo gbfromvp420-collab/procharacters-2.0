@@ -20,7 +20,7 @@ def test_agent_theater_status_api(api_client: TestClient) -> None:
     response = api_client.get("/api/v1/workforce/theater")
     assert response.status_code == 200
     body = response.json()
-    assert body["deployment_phase"] == 15
+    assert body["deployment_phase"] == 20
     assert body["dispatchable_count"] == len(WORKFORCE_ROSTER)
     assert body["tasks_total"] == 0
     assert len(body["members"]) == len(WORKFORCE_ROSTER)
@@ -97,6 +97,11 @@ def _workforce_context_from_app(app) -> "WorkforceContext":
         kgc_audit=app.state.kgc_audit,
         agent_theater=app.state.agent_theater,
         agent_lounge=app.state.agent_lounge,
+        revenue_forge=app.state.revenue_forge,
+        character_forge=app.state.character_forge,
+        live_stage=app.state.live_stage,
+        sovereign_scale=app.state.sovereign_scale,
+        crown_completion=app.state.crown_completion,
     )
 
 

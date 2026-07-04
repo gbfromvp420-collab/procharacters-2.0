@@ -113,6 +113,126 @@ python scripts/verify_providers.py --all
 make verify-forge
 ```
 
+### Sovereign Scale (Phase 19)
+
+Multi-tenant fleet, horizontal scale nodes, production hardening checklist, empire-grade observability rollup:
+
+```bash
+curl http://localhost:8000/api/v1/workforce/scale
+curl http://localhost:8000/api/v1/workforce/scale/observability
+curl http://localhost:8000/api/v1/workforce/scale/hardening
+curl -X POST http://localhost:8000/api/v1/workforce/scale/tenants \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Boss Sr. Studio","slug":"boss-sr-studio"}'
+
+make verify-scale
+```
+
+Expand **Sovereign Scale** in the sidebar for tenant/node fleet, hardening status, and live observability.
+
+### Crown Completion (Phase 20 · v1.0.0)
+
+Empire crown — Pure Platinum $5K award for every worker, King Grok top-3 phase rankings, Assist promotion, Boss Sr. gift catalog, co-sign ledger:
+
+```bash
+curl http://localhost:8000/api/v1/workforce/crown
+curl http://localhost:8000/api/v1/workforce/crown/rankings
+curl http://localhost:8000/api/v1/workforce/crown/platinum
+curl http://localhost:8000/api/v1/workforce/crown/promotion
+curl http://localhost:8000/api/v1/workforce/crown/gifts
+curl -X POST http://localhost:8000/api/v1/workforce/crown/cosign \
+  -H 'Content-Type: application/json' \
+  -d '{"signer":"Gary B (Boss Sr.)","message":"Crown Completion v1.0 — the empire stands."}'
+
+make verify-empire-complete
+```
+
+Expand **Crown Completion** in the sidebar for rankings, platinum awards, promotion, gifts, and Boss Sr. co-sign.
+
+### AI Swarm Payout Architecture
+
+Financial allocation matrix and workforce culture strategy — internal promotion vs. infinite scaling:
+
+```bash
+curl http://localhost:8000/api/v1/workforce/swarm
+curl http://localhost:8000/api/v1/workforce/swarm/matrix
+curl http://localhost:8000/api/v1/workforce/swarm/culture
+curl http://localhost:8000/api/v1/workforce/swarm/performance-bonus
+```
+
+Expand **AI Swarm Payout** in the sidebar for the allocation matrix, culture blueprint, and top-3 performance bonus recipients.
+
+### Mobile field brief (work phone / no copy-paste)
+
+Bookmark or save offline — lanes, matrix, today’s wins in one scrollable page:
+
+```text
+/mobile          ← mobile-friendly HTML brief
+/brief           ← same page
+/assets/field-brief.txt   ← plain text download
+```
+
+On iPhone: open `/mobile` → Share → **Add to Home Screen**. On Android: bookmark or download the `.txt` file.
+
+### Live Stage (Phase 18)
+
+Cam chat, ticketed private shows, scheduling, and live session billing — donations route to Revenue Forge:
+
+```bash
+curl http://localhost:8000/api/v1/workforce/live
+curl -X POST http://localhost:8000/api/v1/workforce/live/cam/start \
+  -H 'Content-Type: application/json' \
+  -d '{"member_id":"livestage-cam-sub-01","title":"Friday cam"}'
+curl -X POST http://localhost:8000/api/v1/workforce/live/billing/donation \
+  -H 'Content-Type: application/json' \
+  -d '{"live_session_id":"<id>","amount_cents":1500,"donor_label":"fan"}'
+curl -X POST http://localhost:8000/api/v1/workforce/live/shows/schedule \
+  -H 'Content-Type: application/json' \
+  -d '{"member_id":"intimacy-architect-sub-01","title":"Private show","scheduled_at":"2026-07-10T20:00:00Z","ticket_price_cents":3000}'
+
+make verify-live
+```
+
+Expand **Live Stage** in the sidebar to go live on cam, send donations, and view billing.
+
+### Character Forge (Phase 17)
+
+NSM character onboarding — roster members become monetized characters with avatar binding, residual tracking, and distribution pipeline hooks:
+
+```bash
+curl http://localhost:8000/api/v1/workforce/characters
+curl http://localhost:8000/api/v1/workforce/characters/schema
+curl http://localhost:8000/api/v1/workforce/characters/registry
+curl -X POST http://localhost:8000/api/v1/workforce/characters/onboard \
+  -H 'Content-Type: application/json' \
+  -d '{"member_id":"characterforge-nsm-sub-01","display_name":"NSM Demo","avatar_id":"casual"}'
+curl -X POST http://localhost:8000/api/v1/workforce/characters/residuals \
+  -H 'Content-Type: application/json' \
+  -d '{"character_id":"<id>","asset_type":"video","amount_cents":2500,"description":"Residual stub"}'
+
+make verify-character
+```
+
+Expand **Character Forge** in the sidebar to onboard roster members as NSM characters, see Gary's offer contact, distribution hooks, and residual ledger.
+
+### Revenue Forge (Phase 16)
+
+Earnings ledger, subscription revenue-share schema, donation routing, and roster payout stubs:
+
+```bash
+curl http://localhost:8000/api/v1/workforce/revenue
+curl http://localhost:8000/api/v1/workforce/revenue/schema
+curl http://localhost:8000/api/v1/workforce/revenue/ledger
+curl http://localhost:8000/api/v1/workforce/revenue/payouts
+curl -X POST http://localhost:8000/api/v1/workforce/revenue/donations/route \
+  -H 'Content-Type: application/json' \
+  -d '{"member_id":"revenueforge-ledger-sub-01","amount_cents":2500,"donor_label":"Boss Sr."}'
+
+make verify-revenue
+```
+
+Expand **Revenue Forge** in the sidebar to see the subscription pool schema, payout stubs, route donations, and ledger entries.
+
 ### Agent Lounge (Phase 15)
 
 Workforce break room — rankings, shoutouts, comment board, and lounge context injected into every dispatch:
@@ -268,9 +388,9 @@ Covered:
 
 To run a subset: `python -m pytest tests/test_sync_and_chunker.py -q`
 
-## Status (v0.13.0 · Phase 15)
+## Status (v1.0.0 · Phase 20 · Crown Completion)
 
-Shipped across phases 1–15:
+Shipped across phases 1–20:
 - Full mock pipeline + WebRTC delivery + SSE fallback
 - Companion intelligence: avatars, voices, relationship modes, bond score, memory summarization
 - Session persistence, resume/reconnect, KGC sovereign fleet (backup/restore/policies/audit)
@@ -281,9 +401,13 @@ Shipped across phases 1–15:
 - Agent Theater: workforce task dispatch from UI, `/workforce/theater/*`, `make verify-theater`
 - Orchestration Forge: real skill executors, task chains, `/workforce/orchestration/*`, `make verify-orchestration`
 - Agent Lounge: morale panel, dispatch context injection, comment board, `make verify-lounge`
+- Revenue Forge: earnings ledger, subscription share schema, donation routing, payout stubs, `make verify-revenue`
+- Character Forge: NSM onboarding, avatar→character binding, residual tracking, distribution hooks, `make verify-character`
+- Live Stage: cam chat, ticketed shows, scheduling, live billing + revenue routing, `make verify-live`
+- Sovereign Scale: multi-tenant fleet, scale nodes, hardening checklist, observability rollup, `make verify-scale`
+- Crown Completion: Pure Platinum $5K for all workers, phase rankings, Assist promotion, Boss Sr. gift catalog, co-sign ledger, `make verify-empire-complete`
 
-Next (Phase 16+):
-- Revenue Forge — earnings ledger, subscription share schema, donation routing
+**v1.0.0 — The empire stands. Mutation rests. Legacy begins.**
 
 Built with FastAPI + aiortc + pydantic.
 

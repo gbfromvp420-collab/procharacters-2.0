@@ -192,6 +192,117 @@
               <summary>Workforce roster</summary>
               <div id="workforceRoster" class="workforce-roster" aria-live="polite">Loading team…</div>
             </details>
+            <details id="swarmPayoutPanel" class="swarm-payout-panel">
+              <summary>AI Swarm Payout</summary>
+              <div class="swarm-payout-body">
+                <div id="swarmPayoutStatus" class="swarm-payout-status" aria-live="polite">Expand to load swarm payout…</div>
+                <pre id="swarmMatrixText" class="swarm-matrix-text" aria-live="polite"></pre>
+                <div id="swarmCulture" class="swarm-culture" aria-live="polite"></div>
+                <ul id="swarmPerformanceBonus" class="swarm-performance-bonus" aria-live="polite"></ul>
+              </div>
+            </details>
+            <details id="crownCompletionPanel" class="crown-completion-panel">
+              <summary>Crown Completion</summary>
+              <div class="crown-completion-body">
+                <div id="crownCompletionStatus" class="crown-completion-status" aria-live="polite">Expand to load crown completion…</div>
+                <ol id="crownPhaseRankings" class="crown-phase-rankings" aria-live="polite"></ol>
+                <div id="crownPromotion" class="crown-promotion" aria-live="polite"></div>
+                <ul id="crownPlatinumAwards" class="crown-platinum-awards" aria-live="polite"></ul>
+                <ul id="crownBossSrGifts" class="crown-boss-sr-gifts" aria-live="polite"></ul>
+                <button id="crownGrantAllBtn" class="btn-ghost crown-grant-all-btn" type="button">Boss Sr. yes to everything</button>
+                <form id="crownCosignForm" class="crown-cosign-form">
+                  <label class="agent-dispatch-label" for="crownCosignSigner">Boss Sr. co-sign</label>
+                  <input id="crownCosignSigner" class="crown-cosign-input" type="text" maxlength="120" placeholder="Your name…" />
+                  <textarea id="crownCosignMessage" class="crown-cosign-textarea" maxlength="2000" rows="2" placeholder="Crown Completion v1.0 message…"></textarea>
+                  <button id="crownCosignBtn" class="btn-ghost crown-cosign-btn" type="submit">Co-sign</button>
+                </form>
+                <ul id="crownCosignList" class="crown-cosign-list" aria-live="polite"></ul>
+              </div>
+            </details>
+            <details id="sovereignScalePanel" class="sovereign-scale-panel">
+              <summary>Sovereign Scale</summary>
+              <div class="sovereign-scale-body">
+                <div id="sovereignScaleStatus" class="sovereign-scale-status" aria-live="polite">Expand to load sovereign scale…</div>
+                <div id="sovereignScaleHardening" class="sovereign-scale-hardening" aria-live="polite"></div>
+                <ul id="sovereignScaleTenants" class="sovereign-scale-tenants" aria-live="polite"></ul>
+                <ul id="sovereignScaleNodes" class="sovereign-scale-nodes" aria-live="polite"></ul>
+                <div id="sovereignScaleObservability" class="sovereign-scale-obs" aria-live="polite"></div>
+              </div>
+            </details>
+            <details id="liveStagePanel" class="live-stage-panel">
+              <summary>Live Stage</summary>
+              <div class="live-stage-body">
+                <div id="liveStageStatus" class="live-stage-status" aria-live="polite">Expand to load live stage…</div>
+                <div id="liveStageSchema" class="live-stage-schema" aria-live="polite"></div>
+                <form id="liveCamForm" class="live-cam-form">
+                  <label class="agent-dispatch-label" for="liveHostSelect">Start cam chat</label>
+                  <select id="liveHostSelect" class="live-stage-select" aria-label="Cam host"></select>
+                  <input id="liveCamTitle" class="live-stage-input" type="text" maxlength="200" placeholder="Session title…" />
+                  <button id="liveCamStartBtn" class="btn-ghost live-cam-btn" type="submit">Go live</button>
+                </form>
+                <form id="liveDonationForm" class="live-donation-form">
+                  <label class="agent-dispatch-label" for="liveSessionSelect">Cam donation</label>
+                  <select id="liveSessionSelect" class="live-stage-select" aria-label="Live cam session"></select>
+                  <input id="liveDonorLabel" class="live-stage-input" type="text" maxlength="80" placeholder="Donor label…" />
+                  <input id="liveDonationDollars" class="live-stage-input" type="number" min="1" step="0.01" value="10.00" />
+                  <button id="liveDonationBtn" class="btn-ghost live-donation-btn" type="submit">Send donation</button>
+                </form>
+                <ul id="liveStageSessions" class="live-stage-sessions" aria-live="polite">
+                  <li class="live-session-empty">No sessions yet.</li>
+                </ul>
+                <ul id="liveStageBilling" class="live-stage-billing" aria-live="polite">
+                  <li class="live-billing-empty">No billing yet.</li>
+                </ul>
+              </div>
+            </details>
+            <details id="characterForgePanel" class="character-forge-panel">
+              <summary>Character Forge</summary>
+              <div class="character-forge-body">
+                <div id="characterForgeStatus" class="character-forge-status" aria-live="polite">Expand to load character forge…</div>
+                <div id="characterForgeContact" class="character-forge-contact" aria-live="polite"></div>
+                <ul id="characterForgeDistribution" class="character-forge-distribution" aria-live="polite"></ul>
+                <form id="characterOnboardForm" class="character-onboard-form">
+                  <label class="agent-dispatch-label" for="characterMemberSelect">Onboard roster member</label>
+                  <select id="characterMemberSelect" class="character-forge-select" aria-label="Roster member for NSM onboarding"></select>
+                  <label class="agent-dispatch-label" for="characterDisplayName">Display name</label>
+                  <input id="characterDisplayName" class="character-forge-input" type="text" maxlength="120" placeholder="NSM character name…" />
+                  <label class="agent-dispatch-label" for="characterAvatarSelect">Avatar bind</label>
+                  <select id="characterAvatarSelect" class="character-forge-select" aria-label="Companion avatar">
+                    <option value="">(bind later)</option>
+                    <option value="default">default</option>
+                    <option value="professional">professional</option>
+                    <option value="casual">casual</option>
+                  </select>
+                  <button id="characterOnboardBtn" class="btn-ghost character-onboard-btn" type="submit">Onboard NSM</button>
+                </form>
+                <ul id="characterForgeRegistry" class="character-forge-registry" aria-live="polite">
+                  <li class="character-registry-empty">No NSM characters yet.</li>
+                </ul>
+                <ul id="characterForgeResiduals" class="character-forge-residuals" aria-live="polite">
+                  <li class="character-residual-empty">No residuals yet.</li>
+                </ul>
+              </div>
+            </details>
+            <details id="revenueForgePanel" class="revenue-forge-panel">
+              <summary>Revenue Forge</summary>
+              <div class="revenue-forge-body">
+                <div id="revenueForgeStatus" class="revenue-forge-status" aria-live="polite">Expand to load revenue forge…</div>
+                <div id="revenueForgeSchema" class="revenue-forge-schema" aria-live="polite"></div>
+                <ul id="revenueForgePayouts" class="revenue-forge-payouts" aria-live="polite"></ul>
+                <form id="revenueDonationForm" class="revenue-donation-form">
+                  <label class="agent-dispatch-label" for="revenueMemberSelect">Route donation to</label>
+                  <select id="revenueMemberSelect" class="revenue-forge-select" aria-label="Roster member for donation"></select>
+                  <label class="agent-dispatch-label" for="revenueDonorLabel">Donor label</label>
+                  <input id="revenueDonorLabel" class="revenue-forge-input" type="text" maxlength="80" placeholder="Boss Sr., fan, anonymous…" />
+                  <label class="agent-dispatch-label" for="revenueAmountDollars">Amount (USD)</label>
+                  <input id="revenueAmountDollars" class="revenue-forge-input" type="number" min="0.01" step="0.01" value="5.00" />
+                  <button id="revenueDonationBtn" class="btn-ghost revenue-donation-btn" type="submit">Route donation</button>
+                </form>
+                <ul id="revenueForgeLedger" class="revenue-forge-ledger" aria-live="polite">
+                  <li class="revenue-ledger-empty">No ledger entries yet.</li>
+                </ul>
+              </div>
+            </details>
             <details id="agentLoungePanel" class="agent-lounge-panel">
               <summary>Agent Lounge</summary>
               <div class="agent-lounge-body">
@@ -233,6 +344,36 @@
           </div>
         </section>
       </main>
+      <nav id="innovationLanesDock" class="innovation-lanes-dock" aria-label="Innovation lanes">
+        <span class="lanes-dock-label">Lanes</span>
+        <div class="lanes-dock-scroll" role="group" aria-label="Pick innovation lane">
+          <button type="button" class="lane-chip" data-lane="providers" title="Real providers — RunPod LLM/TTS/Video">Real</button>
+          <button type="button" class="lane-chip" data-lane="companion" title="Companion depth — relationship UX, bond, presence">Soul</button>
+          <button type="button" class="lane-chip" data-lane="money" title="Characters + revenue">$</button>
+          <button type="button" class="lane-chip" data-lane="live" title="Live Stage + launch">Live</button>
+        </div>
+        <select id="empireNavSelect" class="empire-nav-select" aria-label="Open empire panel">
+          <option value="">More…</option>
+          <optgroup label="Innovation">
+            <option value="lane:providers">Real providers</option>
+            <option value="lane:companion">Companion / Soul</option>
+            <option value="lane:money">Characters + $</option>
+            <option value="lane:live">Live launch</option>
+          </optgroup>
+          <optgroup label="Empire">
+            <option value="panel:swarmPayoutPanel">Swarm Payout</option>
+            <option value="panel:crownCompletionPanel">Crown</option>
+            <option value="panel:liveStagePanel">Live Stage</option>
+            <option value="panel:characterForgePanel">Characters</option>
+            <option value="panel:revenueForgePanel">Revenue</option>
+            <option value="panel:agentLoungePanel">Lounge</option>
+            <option value="panel:agentTheaterPanel">Theater</option>
+            <option value="panel:workforcePanel">Roster</option>
+            <option value="panel:sovereignScalePanel">Scale</option>
+            <option value="panel:kgcPanel">KGC</option>
+          </optgroup>
+        </select>
+      </nav>
       <div id="toast" class="toast hidden" aria-live="polite"></div>
       <div id="milestoneOverlay" class="milestone-overlay hidden" hidden role="dialog" aria-modal="true" aria-labelledby="milestoneOverlayTitle">
         <div class="milestone-overlay-backdrop"></div>

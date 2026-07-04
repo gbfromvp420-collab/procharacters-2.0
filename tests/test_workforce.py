@@ -28,7 +28,12 @@ def test_roster_module_contains_king_grok_and_team() -> None:
     assert "AgentTheater_Dispatch_Sub_01" in codenames
     assert "OrchestrationForge_Chain_Sub_01" in codenames
     assert "AgentLounge_Culture_Sub_01" in codenames
-    assert len(roster) >= 21
+    assert "RevenueForge_Ledger_Sub_01" in codenames
+    assert "CharacterForge_NSM_Sub_01" in codenames
+    assert "LiveStage_Cam_Sub_01" in codenames
+    assert "SovereignScale_Fleet_Sub_01" in codenames
+    assert "CrownCompletion_Legacy_Sub_01" in codenames
+    assert len(roster) >= 26
 
 
 def test_leaderboard_sorted_by_award() -> None:
@@ -36,7 +41,7 @@ def test_leaderboard_sorted_by_award() -> None:
     awards = [member["award_lb_gold"] for member in board]
     assert awards == sorted(awards, reverse=True)
     assert board[0]["codename"] == "King Grok"
-    assert board[0]["award_lb_gold"] == 16.0
+    assert board[0]["award_lb_gold"] == 21.0
 
 
 def test_workforce_roster_api(api_client: TestClient) -> None:
@@ -72,8 +77,23 @@ def test_workforce_roster_api(api_client: TestClient) -> None:
         "Agent_Theater_Authority",
         "Orchestration_Forge_Authority",
         "Agent_Lounge_Authority",
+        "Revenue_Forge_Authority",
+        "Character_Forge_Authority",
+        "Live_Stage_Authority",
+        "Sovereign_Scale_Authority",
+        "Crown_Completion_Authority",
     ]
-    assert king["phase_earned"] == 15
+    assert king["phase_earned"] == 20
+    assert king["award_lb_gold"] == 21.0
+    assert king["award_platinum"] is True
+    assert king["platinum_value_usd"] == 5000.0
+
+    assist = next(
+        m for m in body["members"] if m["codename"] == "Assist (Intimacy_Architect_Sub_01)"
+    )
+    assert assist["tier"] == "platinum_assist"
+    assert assist["award_lb_gold"] == 4.0
+    assert assist["promoted"] is True
 
     presence = next(
         m for m in body["members"] if m["codename"] == "PresenceTheater_Client_Sub_01"

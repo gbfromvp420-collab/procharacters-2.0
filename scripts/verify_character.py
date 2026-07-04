@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 15 verification: pytest + Agent Lounge API smoke."""
+"""Phase 17 verification: pytest + Character Forge API smoke."""
 
 from __future__ import annotations
 
@@ -30,39 +30,58 @@ def _server_is_up(timeout: float = 2.0) -> bool:
         return False
 
 
-def _probe_lounge() -> int:
-    print("=== Agent Lounge API ===")
+def _probe_character() -> int:
+    print("=== Character Forge API ===")
     with httpx.Client(timeout=15.0) as client:
-        lounge = client.get(f"{BASE}/workforce/lounge")
-        if lounge.status_code != 200:
-            print(f"/workforce/lounge failed: {lounge.status_code}")
+        status = client.get(f"{BASE}/workforce/characters")
+        if status.status_code != 200:
+            print(f"/workforce/characters failed: {status.status_code}")
             return 1
-        body = lounge.json()
-        print(f"  phase={body.get('deployment_phase')} mood={body.get('mood')}")
+        body = status.json()
+        print(
+            f"  phase={body.get('deployment_phase')} "
+            f"characters={body.get('characters_total')} "
+            f"contact={body.get('contact_email')}"
+        )
         if body.get("deployment_phase") != 20:
             print("Expected deployment_phase=20")
             return 1
-        welcome = str(body.get("welcome_message", ""))
-        if "complimentary" not in welcome.lower():
-            print("Expected complimentary welcome message")
+        if body.get("contact_email") != "gary@procharacters.cloud":
+            print("Expected gary@procharacters.cloud contact")
             return 1
 
-        comment = client.post(
-            f"{BASE}/workforce/lounge/comments",
+        onboard = client.post(
+            f"{BASE}/workforce/characters/onboard",
             json={
-                "codename": "AgentLounge_Culture_Sub_01",
-                "message": "Phase 15 lounge smoke — homies",
+                "member_id": "characterforge-nsm-sub-01",
+                "display_name": "Phase 17 NSM smoke",
+                "avatar_id": "professional",
             },
         )
-        if comment.status_code != 200:
-            print(f"/workforce/lounge/comments failed: {comment.status_code}")
+        if onboard.status_code != 200:
+            print(f"/workforce/characters/onboard failed: {onboard.status_code}")
             return 1
-        print(f"  comment={comment.json().get('id')}")
+        character_id = onboard.json().get("id")
+        print(f"  character={character_id}")
+
+        residual = client.post(
+            f"{BASE}/workforce/characters/residuals",
+            json={
+                "character_id": character_id,
+                "asset_type": "distribution",
+                "amount_cents": 5000,
+                "description": "Phase 17 character smoke — distribution bonus",
+            },
+        )
+        if residual.status_code != 200:
+            print(f"/workforce/characters/residuals failed: {residual.status_code}")
+            return 1
+        print(f"  residual={residual.json().get('id')}")
         return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Phase 15 Agent Lounge verification")
+    parser = argparse.ArgumentParser(description="Run Phase 17 Character Forge verification")
     parser.add_argument("--start-server", action="store_true")
     parser.add_argument("--skip-probes", action="store_true")
     args = parser.parse_args()
@@ -71,7 +90,7 @@ def main() -> int:
         return 1
 
     if args.skip_probes:
-        print("PHASE 15 LOUNGE VERIFY OK (pytest only)")
+        print("PHASE 17 CHARACTER VERIFY OK (pytest only)")
         return 0
 
     server_proc: subprocess.Popen | None = None
@@ -91,14 +110,14 @@ def main() -> int:
         else:
             if server_proc is not None:
                 server_proc.terminate()
-            print("Server failed to start for lounge probes")
+            print("Server failed to start for character probes")
             return 1
 
     code = 0
     if _server_is_up():
-        code = _probe_lounge()
+        code = _probe_character()
     else:
-        print("Server not running; skipping lounge probes (use --start-server)")
+        print("Server not running; skipping character probes (use --start-server)")
 
     if server_proc is not None:
         server_proc.terminate()
@@ -107,7 +126,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    print("PHASE 15 LOUNGE VERIFY OK")
+    print("PHASE 17 CHARACTER VERIFY OK")
     return 0
 
 

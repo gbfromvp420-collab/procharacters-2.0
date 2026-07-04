@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 15 verification: pytest + Agent Lounge API smoke."""
+"""Phase 16 verification: pytest + Revenue Forge API smoke."""
 
 from __future__ import annotations
 
@@ -30,39 +30,48 @@ def _server_is_up(timeout: float = 2.0) -> bool:
         return False
 
 
-def _probe_lounge() -> int:
-    print("=== Agent Lounge API ===")
+def _probe_revenue() -> int:
+    print("=== Revenue Forge API ===")
     with httpx.Client(timeout=15.0) as client:
-        lounge = client.get(f"{BASE}/workforce/lounge")
-        if lounge.status_code != 200:
-            print(f"/workforce/lounge failed: {lounge.status_code}")
+        status = client.get(f"{BASE}/workforce/revenue")
+        if status.status_code != 200:
+            print(f"/workforce/revenue failed: {status.status_code}")
             return 1
-        body = lounge.json()
-        print(f"  phase={body.get('deployment_phase')} mood={body.get('mood')}")
+        body = status.json()
+        print(
+            f"  phase={body.get('deployment_phase')} "
+            f"pool={body.get('subscription_pool_percent')}% "
+            f"donations={body.get('donation_payout_percent')}%"
+        )
         if body.get("deployment_phase") != 20:
             print("Expected deployment_phase=20")
             return 1
-        welcome = str(body.get("welcome_message", ""))
-        if "complimentary" not in welcome.lower():
-            print("Expected complimentary welcome message")
+        if body.get("subscription_pool_percent") != 10.0:
+            print("Expected subscription_pool_percent=10.0")
             return 1
 
-        comment = client.post(
-            f"{BASE}/workforce/lounge/comments",
+        schema = client.get(f"{BASE}/workforce/revenue/schema")
+        if schema.status_code != 200:
+            print(f"/workforce/revenue/schema failed: {schema.status_code}")
+            return 1
+
+        route = client.post(
+            f"{BASE}/workforce/revenue/donations/route",
             json={
-                "codename": "AgentLounge_Culture_Sub_01",
-                "message": "Phase 15 lounge smoke — homies",
+                "member_id": "revenueforge-ledger-sub-01",
+                "amount_cents": 1600,
+                "donor_label": "Phase 16 revenue smoke",
             },
         )
-        if comment.status_code != 200:
-            print(f"/workforce/lounge/comments failed: {comment.status_code}")
+        if route.status_code != 200:
+            print(f"/workforce/revenue/donations/route failed: {route.status_code}")
             return 1
-        print(f"  comment={comment.json().get('id')}")
+        print(f"  donation={route.json().get('ledger_entry', {}).get('id')}")
         return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Phase 15 Agent Lounge verification")
+    parser = argparse.ArgumentParser(description="Run Phase 16 Revenue Forge verification")
     parser.add_argument("--start-server", action="store_true")
     parser.add_argument("--skip-probes", action="store_true")
     args = parser.parse_args()
@@ -71,7 +80,7 @@ def main() -> int:
         return 1
 
     if args.skip_probes:
-        print("PHASE 15 LOUNGE VERIFY OK (pytest only)")
+        print("PHASE 16 REVENUE VERIFY OK (pytest only)")
         return 0
 
     server_proc: subprocess.Popen | None = None
@@ -91,14 +100,14 @@ def main() -> int:
         else:
             if server_proc is not None:
                 server_proc.terminate()
-            print("Server failed to start for lounge probes")
+            print("Server failed to start for revenue probes")
             return 1
 
     code = 0
     if _server_is_up():
-        code = _probe_lounge()
+        code = _probe_revenue()
     else:
-        print("Server not running; skipping lounge probes (use --start-server)")
+        print("Server not running; skipping revenue probes (use --start-server)")
 
     if server_proc is not None:
         server_proc.terminate()
@@ -107,7 +116,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    print("PHASE 15 LOUNGE VERIFY OK")
+    print("PHASE 16 REVENUE VERIFY OK")
     return 0
 
 

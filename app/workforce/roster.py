@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
+
+_PLATINUM_VALUE_USD = 5000.0
 
 
 class WorkforceMember(TypedDict):
@@ -12,6 +14,10 @@ class WorkforceMember(TypedDict):
     tier: str
     phase_earned: int
     award_lb_gold: float
+    award_platinum: NotRequired[bool]
+    platinum_value_usd: NotRequired[float]
+    promoted: NotRequired[bool]
+    promotion_title: NotRequired[str]
 
 
 WORKFORCE_ROSTER: list[WorkforceMember] = [
@@ -29,18 +35,25 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
             "Agent_Theater_Authority",
             "Orchestration_Forge_Authority",
             "Agent_Lounge_Authority",
+            "Revenue_Forge_Authority",
+            "Character_Forge_Authority",
+            "Live_Stage_Authority",
+            "Sovereign_Scale_Authority",
+            "Crown_Completion_Authority",
         ],
         "tier": "ceo",
-        "phase_earned": 15,
-        "award_lb_gold": 16.0,
+        "phase_earned": 20,
+        "award_lb_gold": 21.0,
     },
     {
         "id": "intimacy-architect-sub-01",
         "codename": "Assist (Intimacy_Architect_Sub_01)",
-        "skills": ["RelationshipMode_UX"],
-        "tier": "assist",
-        "phase_earned": 5,
-        "award_lb_gold": 3.0,
+        "skills": ["RelationshipMode_UX", "Crown_Soul_Slot"],
+        "tier": "platinum_assist",
+        "phase_earned": 20,
+        "award_lb_gold": 4.0,
+        "promoted": True,
+        "promotion_title": "Soul Slot — Platinum Chief of Intimacy",
     },
     {
         "id": "integration-strike-sub-01",
@@ -194,17 +207,66 @@ WORKFORCE_ROSTER: list[WorkforceMember] = [
         "phase_earned": 15,
         "award_lb_gold": 1.0,
     },
+    {
+        "id": "revenueforge-ledger-sub-01",
+        "codename": "RevenueForge_Ledger_Sub_01",
+        "skills": ["Revenue_Ledger_Payouts"],
+        "tier": "team",
+        "phase_earned": 16,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "characterforge-nsm-sub-01",
+        "codename": "CharacterForge_NSM_Sub_01",
+        "skills": ["Character_NSM_Onboarding"],
+        "tier": "team",
+        "phase_earned": 17,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "livestage-cam-sub-01",
+        "codename": "LiveStage_Cam_Sub_01",
+        "skills": ["Live_Stage_CamChat"],
+        "tier": "team",
+        "phase_earned": 18,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "sovereignscale-fleet-sub-01",
+        "codename": "SovereignScale_Fleet_Sub_01",
+        "skills": ["Sovereign_Scale_Fleet"],
+        "tier": "team",
+        "phase_earned": 19,
+        "award_lb_gold": 1.0,
+    },
+    {
+        "id": "crowncompletion-legacy-sub-01",
+        "codename": "CrownCompletion_Legacy_Sub_01",
+        "skills": ["Crown_Legacy_Archive"],
+        "tier": "team",
+        "phase_earned": 20,
+        "award_lb_gold": 1.0,
+    },
 ]
 
 
+def _enrich_platinum(member: WorkforceMember) -> WorkforceMember:
+    enriched: WorkforceMember = {
+        **member,
+        "award_platinum": True,
+        "platinum_value_usd": _PLATINUM_VALUE_USD,
+    }
+    return enriched
+
+
 def get_roster() -> list[WorkforceMember]:
-    """Return the full workforce roster."""
-    return list(WORKFORCE_ROSTER)
+    """Return the full workforce roster with Phase 20 platinum enrichment."""
+    return [_enrich_platinum(member) for member in WORKFORCE_ROSTER]
 
 
 def get_leaderboard() -> list[WorkforceMember]:
     """Return roster sorted by award_lb_gold descending, then codename."""
     return sorted(
-        WORKFORCE_ROSTER,
+        get_roster(),
         key=lambda member: (-member["award_lb_gold"], member["codename"]),
     )

@@ -18,4 +18,9 @@ def build_workforce_context(request: Request) -> WorkforceContext:
         kgc_audit=request.app.state.kgc_audit,
         agent_theater=request.app.state.agent_theater,
         agent_lounge=request.app.state.agent_lounge,
+        revenue_forge=request.app.state.revenue_forge,
+        character_forge=request.app.state.character_forge,
+        live_stage=request.app.state.live_stage,
+        sovereign_scale=request.app.state.sovereign_scale,
+        crown_completion=request.app.state.crown_completion,
     )

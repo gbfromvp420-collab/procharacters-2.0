@@ -27,6 +27,76 @@ async def _exec_workforce_task_dispatch(prompt: str, ctx: WorkforceContext) -> s
     )
 
 
+async def _exec_sovereign_scale(prompt: str, ctx: WorkforceContext) -> str:
+    snap = ctx.sovereign_scale.snapshot(
+        deployment_phase=ctx.settings.deployment_phase,
+        settings=ctx.settings,
+    )
+    return (
+        f"Sovereign scale — tenants={snap['tenants_active']}, "
+        f"nodes={snap['nodes_healthy']}/{snap['nodes_total']}, "
+        f"capacity={snap['fleet_capacity_score']}, "
+        f"hardening={snap['hardening_checks_passed']}/{snap['hardening_checks_total']}. "
+        f"Note: {prompt[:200]}"
+    )
+
+
+async def _exec_crown_completion(prompt: str, ctx: WorkforceContext) -> str:
+    snap = ctx.crown_completion.snapshot(
+        deployment_phase=ctx.settings.deployment_phase,
+        app_version=ctx.settings.app_version,
+    )
+    top = ctx.crown_completion.list_phase_rankings()[0]
+    promo = ctx.crown_completion.get_promotion()
+    return (
+        f"Crown Completion v{snap['empire_version']} — {snap['workers_awarded']} workers, "
+        f"${snap['platinum_pool_value_usd']:,.0f} platinum pool. "
+        f"Top phase: #{top['rank']} {top['name']}. "
+        f"Promoted: {promo['codename']}. "
+        f"Note: {prompt[:180]}"
+    )
+
+
+async def _exec_crown_soul_slot(prompt: str, ctx: WorkforceContext) -> str:
+    promo = ctx.crown_completion.get_promotion()
+    return (
+        f"Soul slot platinum — {promo['promotion_title']}. "
+        f"Relationship modes: {', '.join(ctx.settings.companion_relationship_modes)}. "
+        f"Note: {prompt[:220]}"
+    )
+
+
+async def _exec_live_stage(prompt: str, ctx: WorkforceContext) -> str:
+    snap = ctx.live_stage.snapshot(deployment_phase=ctx.settings.deployment_phase)
+    return (
+        f"Live stage — live={snap['sessions_live']}, scheduled={snap['sessions_scheduled']}, "
+        f"billing_cents={snap['billing_total_cents']}, "
+        f"donation_payout={snap['donation_payout_percent']}%. "
+        f"Note: {prompt[:200]}"
+    )
+
+
+async def _exec_character_forge(prompt: str, ctx: WorkforceContext) -> str:
+    snap = ctx.character_forge.snapshot(deployment_phase=ctx.settings.deployment_phase)
+    return (
+        f"Character forge — characters={snap['characters_total']}, "
+        f"active={snap['characters_active']}, "
+        f"residuals_cents={snap['residuals_total_cents']}. "
+        f"Note: {prompt[:200]}"
+    )
+
+
+async def _exec_revenue_ledger(prompt: str, ctx: WorkforceContext) -> str:
+    snap = ctx.revenue_forge.snapshot(deployment_phase=ctx.settings.deployment_phase)
+    return (
+        f"Revenue forge — ledger_entries={snap['ledger_entries']}, "
+        f"total_cents={snap['ledger_total_cents']}, "
+        f"pool={snap['subscription_pool_percent']}%, "
+        f"donation_payout={snap['donation_payout_percent']}%. "
+        f"Note: {prompt[:200]}"
+    )
+
+
 async def _exec_lounge_morale(prompt: str, ctx: WorkforceContext) -> str:
     snap = ctx.agent_lounge.snapshot(deployment_phase=ctx.settings.deployment_phase)
     return (
@@ -153,6 +223,17 @@ _SKILL_EXECUTORS: dict[str, SkillExecutor] = {
     "Orchestration_Forge_Authority": _exec_task_chain_orchestration,
     "Lounge_Morale_Comments": _exec_lounge_morale,
     "Agent_Lounge_Authority": _exec_lounge_morale,
+    "Revenue_Ledger_Payouts": _exec_revenue_ledger,
+    "Revenue_Forge_Authority": _exec_revenue_ledger,
+    "Character_NSM_Onboarding": _exec_character_forge,
+    "Character_Forge_Authority": _exec_character_forge,
+    "Live_Stage_CamChat": _exec_live_stage,
+    "Live_Stage_Authority": _exec_live_stage,
+    "Sovereign_Scale_Fleet": _exec_sovereign_scale,
+    "Sovereign_Scale_Authority": _exec_sovereign_scale,
+    "Crown_Legacy_Archive": _exec_crown_completion,
+    "Crown_Completion_Authority": _exec_crown_completion,
+    "Crown_Soul_Slot": _exec_crown_soul_slot,
 }
 
 

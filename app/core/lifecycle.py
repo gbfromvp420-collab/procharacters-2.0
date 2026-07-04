@@ -17,6 +17,12 @@ from app.services.tts.pipeline import TTSStreamPipeline
 from app.services.video.pipeline import VideoSyncPipeline
 from app.services.webrtc.session_manager import WebRTCSessionManager
 from app.services.workforce.lounge import AgentLounge
+from app.services.workforce.character_forge import CharacterForge
+from app.services.workforce.live_stage import LiveStage
+from app.services.workforce.crown_completion import CrownCompletion
+from app.services.workforce.swarm_payout import SwarmPayout
+from app.services.workforce.sovereign_scale import SovereignScale
+from app.services.workforce.revenue import RevenueForge
 from app.services.workforce.theater import AgentTheater
 
 logger = logging.getLogger(__name__)
@@ -66,6 +72,33 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         lounge_path=settings.agent_lounge_path,
         comments_path=settings.agent_lounge_comments_path,
     )
+    revenue_forge = RevenueForge(
+        schema_path=settings.revenue_schema_path,
+        ledger_path=settings.revenue_ledger_path,
+    )
+    character_forge = CharacterForge(
+        schema_path=settings.character_forge_schema_path,
+        registry_path=settings.character_forge_registry_path,
+        residuals_path=settings.character_forge_residuals_path,
+        companion_avatars=settings.companion_avatars,
+    )
+    live_stage = LiveStage(
+        schema_path=settings.live_stage_schema_path,
+        sessions_path=settings.live_stage_sessions_path,
+        billing_path=settings.live_stage_billing_path,
+    )
+    sovereign_scale = SovereignScale(
+        schema_path=settings.sovereign_scale_schema_path,
+        tenants_path=settings.sovereign_tenants_path,
+        nodes_path=settings.sovereign_nodes_path,
+    )
+    crown_completion = CrownCompletion(
+        schema_path=settings.crown_completion_schema_path,
+        cosign_path=settings.crown_cosign_path,
+        gifts_granted_path=settings.crown_gifts_granted_path,
+        creative_sessions_path=settings.crown_creative_sessions_path,
+    )
+    swarm_payout = SwarmPayout(schema_path=settings.swarm_payout_schema_path)
 
     app.state.settings = settings
     app.state.metrics = metrics
@@ -80,6 +113,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.provider_probe = provider_probe
     app.state.agent_theater = agent_theater
     app.state.agent_lounge = agent_lounge
+    app.state.revenue_forge = revenue_forge
+    app.state.character_forge = character_forge
+    app.state.live_stage = live_stage
+    app.state.sovereign_scale = sovereign_scale
+    app.state.crown_completion = crown_completion
+    app.state.swarm_payout = swarm_payout
 
     prune_task: asyncio.Task[None] | None = None
     if settings.companion_persist_enabled:

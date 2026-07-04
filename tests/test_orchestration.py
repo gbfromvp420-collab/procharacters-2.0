@@ -20,7 +20,7 @@ def test_orchestration_status_api(api_client: TestClient) -> None:
     response = api_client.get("/api/v1/workforce/orchestration")
     assert response.status_code == 200
     body = response.json()
-    assert body["deployment_phase"] == 15
+    assert body["deployment_phase"] == 20
     assert body["orchestration_enabled"] is True
 
 
@@ -122,6 +122,11 @@ def _workforce_context_from_app(app):
         kgc_audit=app.state.kgc_audit,
         agent_theater=app.state.agent_theater,
         agent_lounge=app.state.agent_lounge,
+        revenue_forge=app.state.revenue_forge,
+        character_forge=app.state.character_forge,
+        live_stage=app.state.live_stage,
+        sovereign_scale=app.state.sovereign_scale,
+        crown_completion=app.state.crown_completion,
     )
 
 
@@ -146,6 +151,10 @@ async def test_agent_theater_real_executor(api_client: TestClient) -> None:
 def test_king_grok_orchestration_authority(api_client: TestClient) -> None:
     response = api_client.get("/api/v1/workforce/roster")
     king = next(m for m in response.json()["members"] if m["codename"] == "King Grok")
-    assert king["award_lb_gold"] == 16.0
-    assert king["phase_earned"] == 15
+    assert king["award_lb_gold"] == 21.0
+    assert king["phase_earned"] == 20
     assert "Orchestration_Forge_Authority" in king["skills"]
+    assert "Revenue_Forge_Authority" in king["skills"]
+    assert "Character_Forge_Authority" in king["skills"]
+    assert "Live_Stage_Authority" in king["skills"]
+    assert "Sovereign_Scale_Authority" in king["skills"]

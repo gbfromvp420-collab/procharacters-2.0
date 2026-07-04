@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 15 verification: pytest + Agent Lounge API smoke."""
+"""Phase 19 verification: pytest + Sovereign Scale API smoke."""
 
 from __future__ import annotations
 
@@ -30,39 +30,36 @@ def _server_is_up(timeout: float = 2.0) -> bool:
         return False
 
 
-def _probe_lounge() -> int:
-    print("=== Agent Lounge API ===")
+def _probe_scale() -> int:
+    print("=== Sovereign Scale API ===")
     with httpx.Client(timeout=15.0) as client:
-        lounge = client.get(f"{BASE}/workforce/lounge")
-        if lounge.status_code != 200:
-            print(f"/workforce/lounge failed: {lounge.status_code}")
+        status = client.get(f"{BASE}/workforce/scale")
+        if status.status_code != 200:
+            print(f"/workforce/scale failed: {status.status_code}")
             return 1
-        body = lounge.json()
-        print(f"  phase={body.get('deployment_phase')} mood={body.get('mood')}")
+        body = status.json()
+        print(
+            f"  phase={body.get('deployment_phase')} "
+            f"tenants={body.get('tenants_total')} "
+            f"nodes={body.get('nodes_healthy')}/{body.get('nodes_total')}"
+        )
         if body.get("deployment_phase") != 20:
             print("Expected deployment_phase=20")
             return 1
-        welcome = str(body.get("welcome_message", ""))
-        if "complimentary" not in welcome.lower():
-            print("Expected complimentary welcome message")
+        if not body.get("scale_ready"):
+            print("Expected scale_ready=true")
             return 1
 
-        comment = client.post(
-            f"{BASE}/workforce/lounge/comments",
-            json={
-                "codename": "AgentLounge_Culture_Sub_01",
-                "message": "Phase 15 lounge smoke — homies",
-            },
-        )
-        if comment.status_code != 200:
-            print(f"/workforce/lounge/comments failed: {comment.status_code}")
+        obs = client.get(f"{BASE}/workforce/scale/observability")
+        if obs.status_code != 200:
+            print(f"/workforce/scale/observability failed: {obs.status_code}")
             return 1
-        print(f"  comment={comment.json().get('id')}")
+        print(f"  observability_phase={obs.json().get('deployment_phase')}")
         return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Phase 15 Agent Lounge verification")
+    parser = argparse.ArgumentParser(description="Run Phase 19 Sovereign Scale verification")
     parser.add_argument("--start-server", action="store_true")
     parser.add_argument("--skip-probes", action="store_true")
     args = parser.parse_args()
@@ -71,7 +68,7 @@ def main() -> int:
         return 1
 
     if args.skip_probes:
-        print("PHASE 15 LOUNGE VERIFY OK (pytest only)")
+        print("PHASE 19 SCALE VERIFY OK (pytest only)")
         return 0
 
     server_proc: subprocess.Popen | None = None
@@ -91,14 +88,14 @@ def main() -> int:
         else:
             if server_proc is not None:
                 server_proc.terminate()
-            print("Server failed to start for lounge probes")
+            print("Server failed to start for scale probes")
             return 1
 
     code = 0
     if _server_is_up():
-        code = _probe_lounge()
+        code = _probe_scale()
     else:
-        print("Server not running; skipping lounge probes (use --start-server)")
+        print("Server not running; skipping scale probes (use --start-server)")
 
     if server_proc is not None:
         server_proc.terminate()
@@ -107,7 +104,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    print("PHASE 15 LOUNGE VERIFY OK")
+    print("PHASE 19 SCALE VERIFY OK")
     return 0
 
 

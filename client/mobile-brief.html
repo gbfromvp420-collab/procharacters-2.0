@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0b0d12" />
+    <title>ProCharacters Field Brief</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d12;
+        --panel: #141824;
+        --border: #252b3a;
+        --text: #e8ecf4;
+        --muted: #8b95a8;
+        --accent: #6c8cff;
+        --gold: #e8c468;
+        --green: #3dd68c;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.45;
+        padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+      }
+      h1 { font-size: 1.25rem; margin: 0 0 4px; }
+      .sub { color: var(--muted); font-size: 0.85rem; margin: 0 0 16px; }
+      .save-tip {
+        background: rgba(108, 140, 255, 0.12);
+        border: 1px solid rgba(108, 140, 255, 0.3);
+        border-radius: 12px;
+        padding: 12px;
+        font-size: 0.82rem;
+        margin-bottom: 16px;
+      }
+      section {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+      h2 {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+        margin: 0 0 10px;
+      }
+      .lane {
+        display: block;
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        font-size: 0.95rem;
+        padding: 14px;
+        margin-bottom: 8px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+      }
+      .lane strong { color: var(--gold); display: block; margin-bottom: 4px; }
+      .lane span { color: var(--muted); font-size: 0.82rem; }
+      pre {
+        margin: 0;
+        font-size: 0.62rem;
+        line-height: 1.35;
+        overflow-x: auto;
+        white-space: pre;
+        color: #d8ffe8;
+        background: rgba(0, 0, 0, 0.35);
+        padding: 10px;
+        border-radius: 10px;
+      }
+      ul { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; }
+      li { margin-bottom: 6px; }
+      .status { font-size: 0.8rem; color: var(--muted); }
+      .status.ok { color: var(--green); }
+      a { color: var(--accent); }
+      .footer { font-size: 0.75rem; color: var(--muted); text-align: center; margin-top: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>ProCharacters Cloud</h1>
+    <p class="sub">Field brief · v1.0.0 · Crown Complete · Boss Sr.</p>
+
+    <div class="save-tip">
+      <strong>Save on your phone:</strong> Bookmark this page, or use Share → <em>Add to Home Screen</em> (iPhone) / <em>Install app</em> (Android). Works offline after first load. Plain-text copy: <a href="/assets/field-brief.txt">field-brief.txt</a>
+    </div>
+
+    <section>
+      <h2>Innovation lanes</h2>
+      <p class="status">Tap a lane — reminder of what we build next.</p>
+      <button type="button" class="lane" onclick="alert('Real providers\n\nRunPod LLM → TTS → MuseTalk live.\nHeader shows LLM/TTS/Vid dots.\nAgent Theater dispatches fleet tasks.')">
+        <strong>1 · Real</strong>
+        <span>Live RunPod providers — not mock. Perform/speak with real GPU.</span>
+      </button>
+      <button type="button" class="lane" onclick="alert('Companion / Soul\n\nRelationship modes, bond score, avatars, voice, presence auras.\nAssist owns this lane — Platinum Chief of Intimacy.')">
+        <strong>2 · Soul</strong>
+        <span>Companion depth — modes, bond, memory, intimacy UX.</span>
+      </button>
+      <button type="button" class="lane" onclick="alert('Characters + $\n\nNSM onboarding, avatar bind, residuals.\nRevenue ledger, donations, subscription share.')">
+        <strong>3 · $</strong>
+        <span>Character Forge + Revenue Forge — real money semantics.</span>
+      </button>
+      <button type="button" class="lane" onclick="alert('Live launch\n\nCam chat, ticketed shows, Assist headline July 11.\nCrown Completion v1.0 co-signed by Boss Sr.')">
+        <strong>4 · Live</strong>
+        <span>Live Stage, public launch, headline shows.</span>
+      </button>
+    </section>
+
+    <section>
+      <h2>Today’s wins</h2>
+      <ul>
+        <li>Phase 20 Crown Completion · v1.0.0 shipped</li>
+        <li>Pure Platinum $5K × 26 workers ($130K pool)</li>
+        <li>Boss Sr. said yes — all 8 gifts granted</li>
+        <li>Assist promoted · Soul Slot · 4lb gold</li>
+        <li>AI Swarm Payout matrix + culture strategy live</li>
+        <li>197 tests passing</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Swarm payout matrix</h2>
+      <pre>====================================================================
+                     FINANCIAL ALLOCATION MATRIX
+====================================================================
+
+[ PHASE COMPLETION ]
+├─ King Grok (KG):      $50,000
+├─ Agent / Sub-Swarm:   $130,000
+└─ MVP Fund:            $25,000
+
+[ MILESTONE COMPLETION ]
+├─ King Grok (KG):      $2,500
+├─ Agent / Sub-Swarm:   $7,500
+└─ MVP Fund:            $2,500
+
+[ PROCHARACTERS.CLOUD LAUNCH ]
+├─ King Grok (KG):      $25,000
+└─ Agent / Sub-Swarm:   $50,000
+
+[ PERFORMANCE BONUS ]
+└─ Top 3 Ranked:        $15,000
+
+====================================================================</pre>
+    </section>
+
+    <section>
+      <h2>Top 3 phases (King Grok)</h2>
+      <ul>
+        <li>#1 Phase 15 — Agent Lounge</li>
+        <li>#2 Phase 14 — Orchestration Forge</li>
+        <li>#3 Phase 10 — Continuity Forge</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Workforce culture</h2>
+      <ul>
+        <li><strong>Promote from within</strong> when practical</li>
+        <li><strong>Infinite scaling</strong> — King Grok hires new specialists, no cap</li>
+        <li>Compounded value = hundreds of human pros replaced</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>When you’re back at a desk</h2>
+      <p class="status">Full app: <a href="/">Open dashboard</a> on same server</p>
+      <p class="status" id="liveStatus">Checking server…</p>
+    </section>
+
+    <p class="footer">Boss Sr. commands · King Grok orchestrates · Long live the empire</p>
+
+    <script>
+      fetch("/api/v1/health/live")
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((d) => {
+          const el = document.getElementById("liveStatus");
+          el.textContent = "Server live · v" + d.version + " · phase " + d.deployment_phase;
+          el.className = "status ok";
+        })
+        .catch(() => {
+          document.getElementById("liveStatus").textContent =
+            "Server offline here — brief still works offline.";
+        });
+    </script>
+  </body>
+</html>

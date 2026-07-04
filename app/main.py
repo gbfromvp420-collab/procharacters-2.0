@@ -46,6 +46,12 @@ def create_app() -> FastAPI:
     async def client_index() -> FileResponse:
         return FileResponse(CLIENT_DIR / "index.html")
 
+    @app.get("/mobile", include_in_schema=False)
+    @app.get("/brief", include_in_schema=False)
+    async def mobile_brief() -> FileResponse:
+        """Mobile-friendly field brief — bookmark or Add to Home Screen."""
+        return FileResponse(CLIENT_DIR / "mobile-brief.html")
+
     app.mount(
         "/assets",
         StaticFiles(directory=CLIENT_DIR),

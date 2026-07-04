@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 15 verification: pytest + Agent Lounge API smoke."""
+"""Phase 18 verification: pytest + Live Stage API smoke."""
 
 from __future__ import annotations
 
@@ -30,39 +30,53 @@ def _server_is_up(timeout: float = 2.0) -> bool:
         return False
 
 
-def _probe_lounge() -> int:
-    print("=== Agent Lounge API ===")
+def _probe_live() -> int:
+    print("=== Live Stage API ===")
     with httpx.Client(timeout=15.0) as client:
-        lounge = client.get(f"{BASE}/workforce/lounge")
-        if lounge.status_code != 200:
-            print(f"/workforce/lounge failed: {lounge.status_code}")
+        status = client.get(f"{BASE}/workforce/live")
+        if status.status_code != 200:
+            print(f"/workforce/live failed: {status.status_code}")
             return 1
-        body = lounge.json()
-        print(f"  phase={body.get('deployment_phase')} mood={body.get('mood')}")
+        body = status.json()
+        print(
+            f"  phase={body.get('deployment_phase')} "
+            f"live={body.get('sessions_live')} "
+            f"donation={body.get('donation_payout_percent')}%"
+        )
         if body.get("deployment_phase") != 20:
             print("Expected deployment_phase=20")
             return 1
-        welcome = str(body.get("welcome_message", ""))
-        if "complimentary" not in welcome.lower():
-            print("Expected complimentary welcome message")
-            return 1
 
-        comment = client.post(
-            f"{BASE}/workforce/lounge/comments",
+        cam = client.post(
+            f"{BASE}/workforce/live/cam/start",
             json={
-                "codename": "AgentLounge_Culture_Sub_01",
-                "message": "Phase 15 lounge smoke — homies",
+                "member_id": "livestage-cam-sub-01",
+                "title": "Phase 18 live smoke",
             },
         )
-        if comment.status_code != 200:
-            print(f"/workforce/lounge/comments failed: {comment.status_code}")
+        if cam.status_code != 200:
+            print(f"/workforce/live/cam/start failed: {cam.status_code}")
             return 1
-        print(f"  comment={comment.json().get('id')}")
+        session_id = cam.json().get("id")
+        print(f"  cam_session={session_id}")
+
+        donation = client.post(
+            f"{BASE}/workforce/live/billing/donation",
+            json={
+                "live_session_id": session_id,
+                "amount_cents": 1800,
+                "donor_label": "Phase 18 live smoke",
+            },
+        )
+        if donation.status_code != 200:
+            print(f"/workforce/live/billing/donation failed: {donation.status_code}")
+            return 1
+        print(f"  donation={donation.json().get('billing_entry', {}).get('id')}")
         return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Phase 15 Agent Lounge verification")
+    parser = argparse.ArgumentParser(description="Run Phase 18 Live Stage verification")
     parser.add_argument("--start-server", action="store_true")
     parser.add_argument("--skip-probes", action="store_true")
     args = parser.parse_args()
@@ -71,7 +85,7 @@ def main() -> int:
         return 1
 
     if args.skip_probes:
-        print("PHASE 15 LOUNGE VERIFY OK (pytest only)")
+        print("PHASE 18 LIVE VERIFY OK (pytest only)")
         return 0
 
     server_proc: subprocess.Popen | None = None
@@ -91,14 +105,14 @@ def main() -> int:
         else:
             if server_proc is not None:
                 server_proc.terminate()
-            print("Server failed to start for lounge probes")
+            print("Server failed to start for live probes")
             return 1
 
     code = 0
     if _server_is_up():
-        code = _probe_lounge()
+        code = _probe_live()
     else:
-        print("Server not running; skipping lounge probes (use --start-server)")
+        print("Server not running; skipping live probes (use --start-server)")
 
     if server_proc is not None:
         server_proc.terminate()
@@ -107,7 +121,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    print("PHASE 15 LOUNGE VERIFY OK")
+    print("PHASE 18 LIVE VERIFY OK")
     return 0
 
 

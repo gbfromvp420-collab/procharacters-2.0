@@ -40,8 +40,8 @@ def lounge_client(
         rate_limit_enabled=False,
         agent_lounge_path=str(lounge_md),
         agent_lounge_comments_path=str(tmp_path / "agent_lounge_comments.json"),
-        deployment_phase=15,
-        app_version="0.13.0",
+        deployment_phase=20,
+        app_version="1.0.0",
     )
     _patch_settings(monkeypatch, settings)
     reset_rate_limiter()
@@ -54,7 +54,7 @@ def test_agent_lounge_api(lounge_client: TestClient) -> None:
     response = lounge_client.get("/api/v1/workforce/lounge")
     assert response.status_code == 200
     body = response.json()
-    assert body["deployment_phase"] == 15
+    assert body["deployment_phase"] == 20
     assert "complimentary" in body["welcome_message"].lower()
     assert body["mood"] == "homies"
     assert body["dispatch_context_enabled"] is True

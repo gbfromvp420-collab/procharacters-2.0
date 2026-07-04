@@ -35,6 +35,14 @@ const state = {
   agentTheaterMembers: [],
   agentTheaterInterval: null,
   agentLoungeInterval: null,
+  revenueForgeInterval: null,
+  revenueForgeMembers: [],
+  characterForgeInterval: null,
+  characterForgeMembers: [],
+  liveStageInterval: null,
+  liveStageMembers: [],
+  liveCamSessions: [],
+  sovereignScaleInterval: null,
   milestones: [],
   milestonesLoaded: false,
   kgcDashboardInterval: null,
@@ -105,6 +113,66 @@ const els = {
   agentLoungeMessage: document.getElementById("agentLoungeMessage"),
   agentLoungePostBtn: document.getElementById("agentLoungePostBtn"),
   agentLoungeComments: document.getElementById("agentLoungeComments"),
+  revenueForgePanel: document.getElementById("revenueForgePanel"),
+  revenueForgeStatus: document.getElementById("revenueForgeStatus"),
+  revenueForgeSchema: document.getElementById("revenueForgeSchema"),
+  revenueForgePayouts: document.getElementById("revenueForgePayouts"),
+  revenueDonationForm: document.getElementById("revenueDonationForm"),
+  revenueMemberSelect: document.getElementById("revenueMemberSelect"),
+  revenueDonorLabel: document.getElementById("revenueDonorLabel"),
+  revenueAmountDollars: document.getElementById("revenueAmountDollars"),
+  revenueDonationBtn: document.getElementById("revenueDonationBtn"),
+  revenueForgeLedger: document.getElementById("revenueForgeLedger"),
+  characterForgePanel: document.getElementById("characterForgePanel"),
+  characterForgeStatus: document.getElementById("characterForgeStatus"),
+  characterForgeContact: document.getElementById("characterForgeContact"),
+  characterForgeDistribution: document.getElementById("characterForgeDistribution"),
+  characterOnboardForm: document.getElementById("characterOnboardForm"),
+  characterMemberSelect: document.getElementById("characterMemberSelect"),
+  characterDisplayName: document.getElementById("characterDisplayName"),
+  characterAvatarSelect: document.getElementById("characterAvatarSelect"),
+  characterOnboardBtn: document.getElementById("characterOnboardBtn"),
+  characterForgeRegistry: document.getElementById("characterForgeRegistry"),
+  characterForgeResiduals: document.getElementById("characterForgeResiduals"),
+  liveStagePanel: document.getElementById("liveStagePanel"),
+  liveStageStatus: document.getElementById("liveStageStatus"),
+  liveStageSchema: document.getElementById("liveStageSchema"),
+  liveCamForm: document.getElementById("liveCamForm"),
+  liveHostSelect: document.getElementById("liveHostSelect"),
+  liveCamTitle: document.getElementById("liveCamTitle"),
+  liveCamStartBtn: document.getElementById("liveCamStartBtn"),
+  liveDonationForm: document.getElementById("liveDonationForm"),
+  liveSessionSelect: document.getElementById("liveSessionSelect"),
+  liveDonorLabel: document.getElementById("liveDonorLabel"),
+  liveDonationDollars: document.getElementById("liveDonationDollars"),
+  liveDonationBtn: document.getElementById("liveDonationBtn"),
+  liveStageSessions: document.getElementById("liveStageSessions"),
+  liveStageBilling: document.getElementById("liveStageBilling"),
+  swarmPayoutPanel: document.getElementById("swarmPayoutPanel"),
+  swarmPayoutStatus: document.getElementById("swarmPayoutStatus"),
+  swarmMatrixText: document.getElementById("swarmMatrixText"),
+  swarmCulture: document.getElementById("swarmCulture"),
+  swarmPerformanceBonus: document.getElementById("swarmPerformanceBonus"),
+  crownCompletionPanel: document.getElementById("crownCompletionPanel"),
+  crownCompletionStatus: document.getElementById("crownCompletionStatus"),
+  crownPhaseRankings: document.getElementById("crownPhaseRankings"),
+  crownPromotion: document.getElementById("crownPromotion"),
+  crownPlatinumAwards: document.getElementById("crownPlatinumAwards"),
+  crownBossSrGifts: document.getElementById("crownBossSrGifts"),
+  crownGrantAllBtn: document.getElementById("crownGrantAllBtn"),
+  crownCosignForm: document.getElementById("crownCosignForm"),
+  crownCosignSigner: document.getElementById("crownCosignSigner"),
+  crownCosignMessage: document.getElementById("crownCosignMessage"),
+  crownCosignBtn: document.getElementById("crownCosignBtn"),
+  crownCosignList: document.getElementById("crownCosignList"),
+  sovereignScalePanel: document.getElementById("sovereignScalePanel"),
+  sovereignScaleStatus: document.getElementById("sovereignScaleStatus"),
+  sovereignScaleHardening: document.getElementById("sovereignScaleHardening"),
+  sovereignScaleTenants: document.getElementById("sovereignScaleTenants"),
+  sovereignScaleNodes: document.getElementById("sovereignScaleNodes"),
+  sovereignScaleObservability: document.getElementById("sovereignScaleObservability"),
+  innovationLanesDock: document.getElementById("innovationLanesDock"),
+  empireNavSelect: document.getElementById("empireNavSelect"),
   kgcPanel: document.getElementById("kgcPanel"),
   kgcDashboard: document.getElementById("kgcDashboard"),
   kgcPruneBtn: document.getElementById("kgcPruneBtn"),
@@ -534,6 +602,95 @@ async function refreshBondScore() {
   }
 }
 
+const LANE_PANEL_LOADERS = {
+  swarmPayoutPanel: () => startSwarmPayoutPolling(),
+  crownCompletionPanel: () => startCrownCompletionPolling(),
+  sovereignScalePanel: () => startSovereignScalePolling(),
+  liveStagePanel: () => startLiveStagePolling(),
+  characterForgePanel: () => startCharacterForgePolling(),
+  revenueForgePanel: () => startRevenueForgePolling(),
+  agentLoungePanel: () => startAgentLoungePolling(),
+  agentTheaterPanel: () => startAgentTheaterPolling(),
+  workforcePanel: () => loadWorkforceRoster().catch(() => {}),
+  kgcPanel: () => {
+    startKgcPolling();
+    loadSovereignPanel().catch(() => {});
+  },
+};
+
+function openEmpirePanel(panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel || panel.tagName !== "DETAILS") return;
+  panel.open = true;
+  const loader = LANE_PANEL_LOADERS[panelId];
+  if (loader) loader();
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function scrollToCompanionLane() {
+  const target =
+    document.querySelector(".companion-config") ||
+    document.getElementById("relationshipModes") ||
+    document.getElementById("videoShell");
+  target?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function activateInnovationLane(lane, { quiet = false } = {}) {
+  document.querySelectorAll(".lane-chip").forEach((chip) => {
+    chip.classList.toggle("lane-chip-active", chip.dataset.lane === lane);
+  });
+
+  const messages = {
+    providers: "Lane: Real providers — header probes + Agent Theater dispatch",
+    companion: "Lane: Companion / Soul — avatars, modes, bond, presence",
+    money: "Lane: Characters + Revenue — NSM forge and ledger",
+    live: "Lane: Live launch — ticketed shows and crown headline",
+  };
+
+  if (lane === "providers") {
+    els.providerStatus?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    openEmpirePanel("agentTheaterPanel");
+  } else if (lane === "companion") {
+    scrollToCompanionLane();
+  } else if (lane === "money") {
+    openEmpirePanel("characterForgePanel");
+    openEmpirePanel("revenueForgePanel");
+  } else if (lane === "live") {
+    openEmpirePanel("liveStagePanel");
+    openEmpirePanel("crownCompletionPanel");
+  }
+
+  if (!quiet && messages[lane]) setLog(messages[lane]);
+}
+
+function initInnovationLanesDock() {
+  if (!els.innovationLanesDock) return;
+  document.body.classList.add("has-lanes-dock");
+
+  els.innovationLanesDock.querySelectorAll(".lane-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const lane = chip.dataset.lane;
+      if (lane) activateInnovationLane(lane);
+    });
+  });
+
+  if (els.empireNavSelect) {
+    els.empireNavSelect.addEventListener("change", () => {
+      const value = els.empireNavSelect.value;
+      els.empireNavSelect.value = "";
+      if (!value) return;
+      if (value.startsWith("lane:")) {
+        activateInnovationLane(value.slice(5));
+        return;
+      }
+      if (value.startsWith("panel:")) {
+        openEmpirePanel(value.slice(6));
+        setLog(`Opened ${value.slice(6)}`);
+      }
+    });
+  }
+}
+
 function renderWorkforceRoster(members) {
   if (!els.workforceRoster) return;
   if (!Array.isArray(members) || members.length === 0) {
@@ -547,17 +704,20 @@ function renderWorkforceRoster(members) {
 
     const name = document.createElement("span");
     name.className = "workforce-member-name";
-    name.textContent = member.codename || member.id;
+    const foundingBadge = member.award_platinum ? " ⚜" : "";
+    name.textContent = `${member.codename || member.id}${foundingBadge}`;
 
     const award = document.createElement("span");
     award.className = "workforce-member-award";
     const gold = Number(member.award_lb_gold) || 0;
-    award.textContent = `${gold}lb gold`;
+    const platinum = member.award_platinum ? ` · $${Number(member.platinum_value_usd || 5000).toLocaleString()} platinum` : "";
+    award.textContent = `${gold}lb gold${platinum}`;
 
     const tier = document.createElement("span");
     const tierName = member.tier || "team";
     tier.className = `workforce-member-tier${tierName === "ceo" ? " workforce-member-tier-ceo" : ""}`;
-    tier.textContent = `${tierName} · phase ${member.phase_earned ?? "?"}`;
+    const promo = member.promoted && member.promotion_title ? ` · ${member.promotion_title}` : "";
+    tier.textContent = `${tierName} · phase ${member.phase_earned ?? "?"}${promo}`;
 
     const skills = document.createElement("span");
     skills.className = "workforce-member-skills";
@@ -840,6 +1000,877 @@ function stopAgentLoungePolling() {
   if (state.agentLoungeInterval) {
     clearInterval(state.agentLoungeInterval);
     state.agentLoungeInterval = null;
+  }
+}
+
+function formatUsdFromCents(cents) {
+  const value = Number(cents || 0) / 100;
+  return `$${value.toFixed(2)}`;
+}
+
+function populateRevenueMemberSelect(members = []) {
+  if (!els.revenueMemberSelect) return;
+  state.revenueForgeMembers = Array.isArray(members) ? members : [];
+  els.revenueMemberSelect.innerHTML = "";
+  state.revenueForgeMembers.forEach((member) => {
+    const option = document.createElement("option");
+    option.value = member.id;
+    option.textContent = `${member.codename} (${member.tier})`;
+    els.revenueMemberSelect.appendChild(option);
+  });
+}
+
+function renderRevenueForge(statusData, schemaData, payoutsData, ledgerData) {
+  if (!els.revenueForgeStatus) return;
+  if (!statusData) {
+    els.revenueForgeStatus.textContent = "Revenue Forge unavailable.";
+    if (els.revenueForgeSchema) els.revenueForgeSchema.textContent = "";
+    return;
+  }
+  els.revenueForgeStatus.textContent =
+    `Phase ${statusData.deployment_phase ?? "?"} · Ledger: ${formatUsdFromCents(statusData.ledger_total_cents)} ` +
+    `(${statusData.ledger_entries ?? 0} entries) · Donations routed: ${statusData.donations_routed ?? 0}`;
+  if (els.revenueForgeSchema && schemaData) {
+    const sub = schemaData.subscription_share || {};
+    const donation = schemaData.donation_routing || {};
+    const tiers = sub.tiers || {};
+    els.revenueForgeSchema.textContent =
+      `Subscription pool: ${sub.pool_percent ?? 0}% monthly gross · ` +
+      `CEO ${((tiers.ceo ?? 0) * 100).toFixed(0)}% · Assist ${((tiers.assist ?? 0) * 100).toFixed(0)}% · ` +
+      `Team ${((tiers.team ?? 0) * 100).toFixed(0)}% of pool · ` +
+      `Donations: ${donation.character_payout_percent ?? 100}% to character`;
+  }
+  if (els.revenueForgePayouts) {
+    els.revenueForgePayouts.innerHTML = "";
+    const payouts = Array.isArray(payoutsData?.payouts) ? payoutsData.payouts.slice(0, 6) : [];
+    if (payouts.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "revenue-ledger-empty";
+      empty.textContent = "No payout stubs yet.";
+      els.revenueForgePayouts.appendChild(empty);
+    } else {
+      payouts.forEach((row, index) => {
+        const item = document.createElement("li");
+        item.className = "revenue-payout-item";
+        item.textContent =
+          `${index + 1}. ${row.codename} — ledger ${formatUsdFromCents(row.ledger_total_cents)} · ` +
+          `proj/mo ${formatUsdFromCents(row.projected_monthly_cents)}`;
+        els.revenueForgePayouts.appendChild(item);
+      });
+    }
+  }
+  if (!els.revenueForgeLedger) return;
+  els.revenueForgeLedger.innerHTML = "";
+  const entries = Array.isArray(ledgerData?.entries) ? ledgerData.entries : [];
+  if (entries.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "revenue-ledger-empty";
+    empty.textContent = "No ledger entries yet.";
+    els.revenueForgeLedger.appendChild(empty);
+    return;
+  }
+  entries.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "revenue-ledger-item";
+    const head = document.createElement("div");
+    head.className = "revenue-ledger-head";
+    head.textContent = `${entry.codename} · ${entry.entry_type} · ${formatUsdFromCents(entry.amount_cents)}`;
+    const body = document.createElement("div");
+    body.className = "revenue-ledger-body";
+    body.textContent = entry.description || "";
+    item.appendChild(head);
+    item.appendChild(body);
+    els.revenueForgeLedger.appendChild(item);
+  });
+}
+
+async function loadRevenueForge({ quiet = false } = {}) {
+  if (!els.revenueForgeStatus) return null;
+  try {
+    const [statusRes, schemaRes, payoutsRes, ledgerRes, rosterRes] = await Promise.all([
+      fetch(`${API}/workforce/revenue`),
+      fetch(`${API}/workforce/revenue/schema`),
+      fetch(`${API}/workforce/revenue/payouts`),
+      fetch(`${API}/workforce/revenue/ledger?limit=20`),
+      fetch(`${API}/workforce/roster`),
+    ]);
+    if (!statusRes.ok) throw new Error(`revenue ${statusRes.status}`);
+    if (!schemaRes.ok) throw new Error(`revenue schema ${schemaRes.status}`);
+    if (!payoutsRes.ok) throw new Error(`revenue payouts ${payoutsRes.status}`);
+    if (!ledgerRes.ok) throw new Error(`revenue ledger ${ledgerRes.status}`);
+    const statusData = await statusRes.json();
+    const schemaData = await schemaRes.json();
+    const payoutsData = await payoutsRes.json();
+    const ledgerData = await ledgerRes.json();
+    if (rosterRes.ok) {
+      const rosterData = await rosterRes.json();
+      populateRevenueMemberSelect(rosterData.members || []);
+    }
+    renderRevenueForge(statusData, schemaData, payoutsData, ledgerData);
+    if (!quiet) {
+      setLog(
+        `Revenue Forge — ${formatUsdFromCents(statusData.ledger_total_cents)} ledger · ` +
+          `${statusData.subscription_pool_percent ?? 0}% sub pool`
+      );
+    }
+    return statusData;
+  } catch (e) {
+    console.warn("Revenue Forge fetch failed", e);
+    renderRevenueForge(null);
+    if (!quiet) setLog("Revenue Forge unavailable.");
+    return null;
+  }
+}
+
+async function routeRevenueDonation(event) {
+  event?.preventDefault?.();
+  if (!els.revenueMemberSelect || !els.revenueAmountDollars) return;
+  const memberId = els.revenueMemberSelect.value;
+  const donorLabel = (els.revenueDonorLabel?.value || "").trim() || "anonymous";
+  const dollars = Number(els.revenueAmountDollars.value || 0);
+  if (!memberId || !Number.isFinite(dollars) || dollars <= 0) {
+    showToast("Member and positive amount required", true);
+    return;
+  }
+  const amountCents = Math.round(dollars * 100);
+  if (els.revenueDonationBtn) els.revenueDonationBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/revenue/donations/route`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        member_id: memberId,
+        amount_cents: amountCents,
+        donor_label: donorLabel,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `donation route ${res.status}`);
+    }
+    const body = await res.json();
+    setLog(`Donation routed — ${formatUsdFromCents(amountCents)} → ${body.routed_to_codename}`);
+    showToast(`Routed to ${body.routed_to_codename}`);
+    await loadRevenueForge({ quiet: true });
+  } catch (e) {
+    showToast(e.message || "Donation route failed", true);
+    setLog(e.message || "Donation route failed.");
+  } finally {
+    if (els.revenueDonationBtn) els.revenueDonationBtn.disabled = false;
+  }
+}
+
+function startRevenueForgePolling() {
+  stopRevenueForgePolling();
+  loadRevenueForge({ quiet: true }).catch(() => {});
+  state.revenueForgeInterval = setInterval(() => {
+    if (els.revenueForgePanel?.open) loadRevenueForge({ quiet: true }).catch(() => {});
+  }, 8000);
+}
+
+function stopRevenueForgePolling() {
+  if (state.revenueForgeInterval) {
+    clearInterval(state.revenueForgeInterval);
+    state.revenueForgeInterval = null;
+  }
+}
+
+function populateCharacterMemberSelect(members = []) {
+  if (!els.characterMemberSelect) return;
+  state.characterForgeMembers = Array.isArray(members) ? members : [];
+  els.characterMemberSelect.innerHTML = "";
+  state.characterForgeMembers.forEach((member) => {
+    const option = document.createElement("option");
+    option.value = member.id;
+    option.textContent = `${member.codename} (${member.tier})`;
+    els.characterMemberSelect.appendChild(option);
+  });
+}
+
+function renderCharacterForge(statusData, schemaData, registryData, residualsData, distributionData) {
+  if (!els.characterForgeStatus) return;
+  if (!statusData) {
+    els.characterForgeStatus.textContent = "Character Forge unavailable.";
+    if (els.characterForgeContact) els.characterForgeContact.textContent = "";
+    return;
+  }
+  els.characterForgeStatus.textContent =
+    `Phase ${statusData.deployment_phase ?? "?"} · NSM characters: ${statusData.characters_active ?? 0} active, ` +
+    `${statusData.characters_pending ?? 0} pending · Residuals: ${formatUsdFromCents(statusData.residuals_total_cents)}`;
+  if (els.characterForgeContact) {
+    const program = schemaData?.nsm_program || {};
+    els.characterForgeContact.textContent =
+      `Gary's NSM offer live — contact ${statusData.contact_email || program.contact_email || "gary@procharacters.cloud"} · ` +
+      `${program.default_residual_percent ?? 100}% lifetime residuals on photos/videos`;
+  }
+  if (els.characterForgeDistribution) {
+    els.characterForgeDistribution.innerHTML = "";
+    const hooks = Array.isArray(distributionData?.hooks) ? distributionData.hooks : [];
+    if (hooks.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "character-residual-empty";
+      empty.textContent = "No distribution hooks.";
+      els.characterForgeDistribution.appendChild(empty);
+    } else {
+      hooks.forEach((hook) => {
+        const item = document.createElement("li");
+        item.className = "character-distribution-item";
+        item.textContent = `${hook.label} — ${hook.status}`;
+        els.characterForgeDistribution.appendChild(item);
+      });
+    }
+  }
+  if (els.characterForgeRegistry) {
+    els.characterForgeRegistry.innerHTML = "";
+    const characters = Array.isArray(registryData?.characters) ? registryData.characters : [];
+    if (characters.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "character-registry-empty";
+      empty.textContent = "No NSM characters yet — onboard a roster member.";
+      els.characterForgeRegistry.appendChild(empty);
+    } else {
+      characters.forEach((character) => {
+        const item = document.createElement("li");
+        item.className = "character-registry-item";
+        const avatarNote = character.avatar_id ? ` · avatar ${character.avatar_id}` : " · avatar unbound";
+        item.textContent =
+          `${character.display_name} (${character.status})${avatarNote} · ${character.residual_percent}% residuals`;
+        els.characterForgeRegistry.appendChild(item);
+      });
+    }
+  }
+  if (!els.characterForgeResiduals) return;
+  els.characterForgeResiduals.innerHTML = "";
+  const residuals = Array.isArray(residualsData?.residuals) ? residualsData.residuals : [];
+  if (residuals.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "character-residual-empty";
+    empty.textContent = "No residuals yet.";
+    els.characterForgeResiduals.appendChild(empty);
+    return;
+  }
+  residuals.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "character-residual-item";
+    item.textContent =
+      `${entry.codename} · ${entry.asset_type} · ${formatUsdFromCents(entry.amount_cents)} — ${entry.description}`;
+    els.characterForgeResiduals.appendChild(item);
+  });
+}
+
+async function loadCharacterForge({ quiet = false } = {}) {
+  if (!els.characterForgeStatus) return null;
+  try {
+    const [statusRes, schemaRes, registryRes, residualsRes, distributionRes, rosterRes] = await Promise.all([
+      fetch(`${API}/workforce/characters`),
+      fetch(`${API}/workforce/characters/schema`),
+      fetch(`${API}/workforce/characters/registry?limit=20`),
+      fetch(`${API}/workforce/characters/residuals?limit=20`),
+      fetch(`${API}/workforce/characters/distribution`),
+      fetch(`${API}/workforce/roster`),
+    ]);
+    if (!statusRes.ok) throw new Error(`characters ${statusRes.status}`);
+    if (!schemaRes.ok) throw new Error(`characters schema ${schemaRes.status}`);
+    if (!registryRes.ok) throw new Error(`characters registry ${registryRes.status}`);
+    if (!residualsRes.ok) throw new Error(`characters residuals ${residualsRes.status}`);
+    if (!distributionRes.ok) throw new Error(`characters distribution ${distributionRes.status}`);
+    const statusData = await statusRes.json();
+    const schemaData = await schemaRes.json();
+    const registryData = await registryRes.json();
+    const residualsData = await residualsRes.json();
+    const distributionData = await distributionRes.json();
+    if (rosterRes.ok) {
+      const rosterData = await rosterRes.json();
+      populateCharacterMemberSelect(rosterData.members || []);
+    }
+    renderCharacterForge(statusData, schemaData, registryData, residualsData, distributionData);
+    if (!quiet) {
+      setLog(
+        `Character Forge — ${statusData.characters_active ?? 0} active NSM · ` +
+          `${statusData.residuals_count ?? 0} residual(s)`
+      );
+    }
+    return statusData;
+  } catch (e) {
+    console.warn("Character Forge fetch failed", e);
+    renderCharacterForge(null);
+    if (!quiet) setLog("Character Forge unavailable.");
+    return null;
+  }
+}
+
+async function onboardNSMCharacter(event) {
+  event?.preventDefault?.();
+  if (!els.characterMemberSelect) return;
+  const memberId = els.characterMemberSelect.value;
+  const displayName = (els.characterDisplayName?.value || "").trim();
+  const avatarId = (els.characterAvatarSelect?.value || "").trim();
+  if (!memberId) {
+    showToast("Select a roster member", true);
+    return;
+  }
+  if (els.characterOnboardBtn) els.characterOnboardBtn.disabled = true;
+  try {
+    const payload = { member_id: memberId };
+    if (displayName) payload.display_name = displayName;
+    if (avatarId) payload.avatar_id = avatarId;
+    payload.distribution_pipeline = true;
+    const res = await fetch(`${API}/workforce/characters/onboard`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `onboard ${res.status}`);
+    }
+    const body = await res.json();
+    setLog(`NSM onboarded — ${body.display_name} (${body.status})`);
+    showToast(`Onboarded ${body.display_name}`);
+    if (els.characterDisplayName) els.characterDisplayName.value = "";
+    await loadCharacterForge({ quiet: true });
+  } catch (e) {
+    showToast(e.message || "Onboard failed", true);
+    setLog(e.message || "NSM onboard failed.");
+  } finally {
+    if (els.characterOnboardBtn) els.characterOnboardBtn.disabled = false;
+  }
+}
+
+function startCharacterForgePolling() {
+  stopCharacterForgePolling();
+  loadCharacterForge({ quiet: true }).catch(() => {});
+  state.characterForgeInterval = setInterval(() => {
+    if (els.characterForgePanel?.open) loadCharacterForge({ quiet: true }).catch(() => {});
+  }, 8000);
+}
+
+function stopCharacterForgePolling() {
+  if (state.characterForgeInterval) {
+    clearInterval(state.characterForgeInterval);
+    state.characterForgeInterval = null;
+  }
+}
+
+function populateLiveHostSelect(members = []) {
+  if (!els.liveHostSelect) return;
+  state.liveStageMembers = Array.isArray(members) ? members : [];
+  els.liveHostSelect.innerHTML = "";
+  state.liveStageMembers.forEach((member) => {
+    const option = document.createElement("option");
+    option.value = member.id;
+    option.textContent = `${member.codename} (${member.tier})`;
+    els.liveHostSelect.appendChild(option);
+  });
+}
+
+function populateLiveSessionSelect(sessions = []) {
+  if (!els.liveSessionSelect) return;
+  const live = (Array.isArray(sessions) ? sessions : []).filter(
+    (s) => s.session_type === "cam" && s.status === "live"
+  );
+  state.liveCamSessions = live;
+  els.liveSessionSelect.innerHTML = "";
+  if (live.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "(no live cam sessions)";
+    els.liveSessionSelect.appendChild(option);
+    return;
+  }
+  live.forEach((session) => {
+    const option = document.createElement("option");
+    option.value = session.id;
+    option.textContent = `${session.title} — ${session.codename}`;
+    els.liveSessionSelect.appendChild(option);
+  });
+}
+
+function renderLiveStage(statusData, schemaData, sessionsData, billingData) {
+  if (!els.liveStageStatus) return;
+  if (!statusData) {
+    els.liveStageStatus.textContent = "Live Stage unavailable.";
+    if (els.liveStageSchema) els.liveStageSchema.textContent = "";
+    return;
+  }
+  els.liveStageStatus.textContent =
+    `Phase ${statusData.deployment_phase ?? "?"} · Live: ${statusData.sessions_live ?? 0} · ` +
+    `Scheduled: ${statusData.sessions_scheduled ?? 0} · Billing: ${formatUsdFromCents(statusData.billing_total_cents)}`;
+  if (els.liveStageSchema && schemaData) {
+    const cam = schemaData.cam_chat || {};
+    const shows = schemaData.ticketed_shows || {};
+    els.liveStageSchema.textContent =
+      `Cam donations: ${cam.donation_payout_percent ?? 100}% to host · ` +
+      `Ticketed shows: ${shows.host_share_percent ?? 70}% host / ${shows.platform_fee_percent ?? 30}% platform · ` +
+      `Default ticket ${formatUsdFromCents(shows.default_ticket_price_cents ?? 2500)}`;
+  }
+  const sessions = Array.isArray(sessionsData?.sessions) ? sessionsData.sessions : [];
+  populateLiveSessionSelect(sessions);
+  if (els.liveStageSessions) {
+    els.liveStageSessions.innerHTML = "";
+    if (sessions.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "live-session-empty";
+      empty.textContent = "No sessions yet — go live.";
+      els.liveStageSessions.appendChild(empty);
+    } else {
+      sessions.slice(0, 8).forEach((session) => {
+        const item = document.createElement("li");
+        item.className = "live-session-item";
+        item.textContent =
+          `${session.title} · ${session.session_type} · ${session.status} · ` +
+          `${session.codename} · ${formatUsdFromCents(session.billing_total_cents)}`;
+        els.liveStageSessions.appendChild(item);
+      });
+    }
+  }
+  if (!els.liveStageBilling) return;
+  els.liveStageBilling.innerHTML = "";
+  const entries = Array.isArray(billingData?.entries) ? billingData.entries : [];
+  if (entries.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "live-billing-empty";
+    empty.textContent = "No billing yet.";
+    els.liveStageBilling.appendChild(empty);
+    return;
+  }
+  entries.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "live-billing-item";
+    item.textContent =
+      `${entry.codename} · ${entry.billing_type} · host ${formatUsdFromCents(entry.host_payout_cents)} — ${entry.description}`;
+    els.liveStageBilling.appendChild(item);
+  });
+}
+
+async function loadLiveStage({ quiet = false } = {}) {
+  if (!els.liveStageStatus) return null;
+  try {
+    const [statusRes, schemaRes, sessionsRes, billingRes, rosterRes] = await Promise.all([
+      fetch(`${API}/workforce/live`),
+      fetch(`${API}/workforce/live/schema`),
+      fetch(`${API}/workforce/live/sessions?limit=20`),
+      fetch(`${API}/workforce/live/billing?limit=20`),
+      fetch(`${API}/workforce/roster`),
+    ]);
+    if (!statusRes.ok) throw new Error(`live ${statusRes.status}`);
+    if (!schemaRes.ok) throw new Error(`live schema ${schemaRes.status}`);
+    if (!sessionsRes.ok) throw new Error(`live sessions ${sessionsRes.status}`);
+    if (!billingRes.ok) throw new Error(`live billing ${billingRes.status}`);
+    const statusData = await statusRes.json();
+    const schemaData = await schemaRes.json();
+    const sessionsData = await sessionsRes.json();
+    const billingData = await billingRes.json();
+    if (rosterRes.ok) {
+      const rosterData = await rosterRes.json();
+      populateLiveHostSelect(rosterData.members || []);
+    }
+    renderLiveStage(statusData, schemaData, sessionsData, billingData);
+    if (!quiet) {
+      setLog(`Live Stage — ${statusData.sessions_live ?? 0} live · ${statusData.billing_entries ?? 0} billing row(s)`);
+    }
+    return statusData;
+  } catch (e) {
+    console.warn("Live Stage fetch failed", e);
+    renderLiveStage(null);
+    if (!quiet) setLog("Live Stage unavailable.");
+    return null;
+  }
+}
+
+async function startLiveCam(event) {
+  event?.preventDefault?.();
+  if (!els.liveHostSelect) return;
+  const memberId = els.liveHostSelect.value;
+  const title = (els.liveCamTitle?.value || "").trim();
+  if (!memberId) {
+    showToast("Select a host", true);
+    return;
+  }
+  if (els.liveCamStartBtn) els.liveCamStartBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/live/cam/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ member_id: memberId, title: title || undefined }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `cam start ${res.status}`);
+    }
+    const body = await res.json();
+    setLog(`Cam live — ${body.title} (${body.id})`);
+    showToast("Cam session live");
+    if (els.liveCamTitle) els.liveCamTitle.value = "";
+    await loadLiveStage({ quiet: true });
+  } catch (e) {
+    showToast(e.message || "Cam start failed", true);
+    setLog(e.message || "Cam start failed.");
+  } finally {
+    if (els.liveCamStartBtn) els.liveCamStartBtn.disabled = false;
+  }
+}
+
+async function sendLiveDonation(event) {
+  event?.preventDefault?.();
+  if (!els.liveSessionSelect || !els.liveDonationDollars) return;
+  const sessionId = els.liveSessionSelect.value;
+  const donorLabel = (els.liveDonorLabel?.value || "").trim() || "anonymous";
+  const dollars = Number(els.liveDonationDollars.value || 0);
+  if (!sessionId || !Number.isFinite(dollars) || dollars <= 0) {
+    showToast("Live session and amount required", true);
+    return;
+  }
+  const amountCents = Math.round(dollars * 100);
+  if (els.liveDonationBtn) els.liveDonationBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/live/billing/donation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        live_session_id: sessionId,
+        amount_cents: amountCents,
+        donor_label: donorLabel,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `donation ${res.status}`);
+    }
+    const body = await res.json();
+    setLog(`Live donation — ${formatUsdFromCents(amountCents)} → ${body.billing_entry?.codename}`);
+    showToast(`Donation sent${body.revenue_routed ? " + revenue routed" : ""}`);
+    await loadLiveStage({ quiet: true });
+  } catch (e) {
+    showToast(e.message || "Donation failed", true);
+    setLog(e.message || "Live donation failed.");
+  } finally {
+    if (els.liveDonationBtn) els.liveDonationBtn.disabled = false;
+  }
+}
+
+function startLiveStagePolling() {
+  stopLiveStagePolling();
+  loadLiveStage({ quiet: true }).catch(() => {});
+  state.liveStageInterval = setInterval(() => {
+    if (els.liveStagePanel?.open) loadLiveStage({ quiet: true }).catch(() => {});
+  }, 8000);
+}
+
+function stopLiveStagePolling() {
+  if (state.liveStageInterval) {
+    clearInterval(state.liveStageInterval);
+    state.liveStageInterval = null;
+  }
+}
+
+function renderSwarmPayout(statusData, matrixData, cultureData, bonusData) {
+  if (!els.swarmPayoutStatus) return;
+  if (!statusData) {
+    els.swarmPayoutStatus.textContent = "AI Swarm Payout unavailable.";
+    return;
+  }
+  els.swarmPayoutStatus.textContent =
+    `Phase ${statusData.deployment_phase ?? "?"} · ${statusData.roster_count ?? 0} agents · ` +
+    `$${Number(statusData.empire_allocation_total_usd || 0).toLocaleString()} allocated · ` +
+    `${statusData.promotion_policy ?? "promote"} / ${statusData.scaling_policy ?? "scale"}`;
+  if (els.swarmMatrixText && matrixData?.matrix_text) {
+    els.swarmMatrixText.textContent = matrixData.matrix_text;
+  }
+  if (els.swarmCulture && cultureData) {
+    const sectionText = (cultureData.sections || [])
+      .map((s) => `${s.heading}: ${s.body}`)
+      .join(" ");
+    els.swarmCulture.textContent =
+      `${cultureData.title ?? "Culture"} — ${cultureData.hiring_authority ?? "king_grok"} hires, cap: ${cultureData.workforce_cap ?? "none"}. ${sectionText.slice(0, 420)}`;
+  }
+  if (els.swarmPerformanceBonus && bonusData) {
+    els.swarmPerformanceBonus.innerHTML = "";
+    (bonusData.recipients || []).forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "swarm-bonus-item";
+      li.textContent = `#${item.rank} ${item.name} — ${item.codename} · $${Number(item.bonus_usd).toLocaleString()}`;
+      els.swarmPerformanceBonus.appendChild(li);
+    });
+  }
+}
+
+async function loadSwarmPayout({ quiet = false } = {}) {
+  if (!els.swarmPayoutStatus) return null;
+  try {
+    const [statusRes, matrixRes, cultureRes, bonusRes] = await Promise.all([
+      fetch(`${API}/workforce/swarm`),
+      fetch(`${API}/workforce/swarm/matrix`),
+      fetch(`${API}/workforce/swarm/culture`),
+      fetch(`${API}/workforce/swarm/performance-bonus`),
+    ]);
+    if (!statusRes.ok) throw new Error(`swarm ${statusRes.status}`);
+    const statusData = await statusRes.json();
+    const matrixData = matrixRes.ok ? await matrixRes.json() : null;
+    const cultureData = cultureRes.ok ? await cultureRes.json() : null;
+    const bonusData = bonusRes.ok ? await bonusRes.json() : null;
+    renderSwarmPayout(statusData, matrixData, cultureData, bonusData);
+    if (!quiet) {
+      setLog(`AI Swarm Payout — $${Number(statusData.empire_allocation_total_usd || 0).toLocaleString()} empire allocation`);
+    }
+    return statusData;
+  } catch (e) {
+    console.warn("Swarm payout fetch failed", e);
+    renderSwarmPayout(null);
+    if (!quiet) setLog("AI Swarm Payout unavailable.");
+    return null;
+  }
+}
+
+function startSwarmPayoutPolling() {
+  stopSwarmPayoutPolling();
+  loadSwarmPayout({ quiet: true }).catch(() => {});
+  state.swarmPayoutInterval = setInterval(() => {
+    if (els.swarmPayoutPanel?.open) loadSwarmPayout({ quiet: true }).catch(() => {});
+  }, 15000);
+}
+
+function stopSwarmPayoutPolling() {
+  if (state.swarmPayoutInterval) {
+    clearInterval(state.swarmPayoutInterval);
+    state.swarmPayoutInterval = null;
+  }
+}
+
+function renderCrownCompletion(statusData, rankingsData, promoData, platinumData, giftsData, cosignData) {
+  if (!els.crownCompletionStatus) return;
+  if (!statusData) {
+    els.crownCompletionStatus.textContent = "Crown Completion unavailable.";
+    return;
+  }
+  const accepted = statusData.boss_sr_accepted_all ? " · Boss Sr. YES" : "";
+  els.crownCompletionStatus.textContent =
+    `v${statusData.app_version ?? "?"} · Phase ${statusData.deployment_phase ?? "?"} · ` +
+    `${statusData.workers_awarded ?? 0} workers · $${Number(statusData.platinum_pool_value_usd || 0).toLocaleString()} platinum pool · ` +
+    `Crown ${statusData.crown_complete ? "complete" : "pending"}${accepted}`;
+  if (els.crownPhaseRankings && rankingsData) {
+    els.crownPhaseRankings.innerHTML = "";
+    (rankingsData.rankings || []).forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "crown-ranking-item";
+      li.textContent = `#${item.rank} Phase ${item.phase} — ${item.name} (${item.codename})`;
+      els.crownPhaseRankings.appendChild(li);
+    });
+  }
+  if (els.crownPromotion && promoData) {
+    els.crownPromotion.textContent =
+      `Promoted: ${promoData.codename} → ${promoData.promotion_title} · ${promoData.award_lb_before}lb → ${promoData.award_lb_after}lb`;
+  }
+  if (els.crownPlatinumAwards && platinumData) {
+    els.crownPlatinumAwards.innerHTML = "";
+    (platinumData.awards || []).slice(0, 8).forEach((award) => {
+      const li = document.createElement("li");
+      li.className = "crown-platinum-item";
+      li.textContent = `${award.codename} — $${Number(award.platinum_value_usd).toLocaleString()} ${award.award_name}`;
+      els.crownPlatinumAwards.appendChild(li);
+    });
+    if ((platinumData.awards || []).length > 8) {
+      const more = document.createElement("li");
+      more.className = "crown-platinum-more";
+      more.textContent = `+${platinumData.awards.length - 8} more workers awarded`;
+      els.crownPlatinumAwards.appendChild(more);
+    }
+  }
+  if (els.crownBossSrGifts && giftsData) {
+    els.crownBossSrGifts.innerHTML = "";
+    (giftsData.gifts || []).slice(0, 5).forEach((gift) => {
+      const li = document.createElement("li");
+      li.className = "crown-gift-item";
+      li.textContent = `${gift.title} — ${gift.description}`;
+      els.crownBossSrGifts.appendChild(li);
+    });
+  }
+  if (els.crownCosignList && cosignData) {
+    els.crownCosignList.innerHTML = "";
+    (cosignData.cosigns || []).slice(0, 5).forEach((entry) => {
+      const li = document.createElement("li");
+      li.className = "crown-cosign-item";
+      li.textContent = `${entry.signer}: ${entry.message}`;
+      els.crownCosignList.appendChild(li);
+    });
+  }
+}
+
+async function loadCrownCompletion({ quiet = false } = {}) {
+  if (!els.crownCompletionStatus) return null;
+  try {
+    const [statusRes, rankingsRes, promoRes, platinumRes, giftsRes, cosignRes] = await Promise.all([
+      fetch(`${API}/workforce/crown`),
+      fetch(`${API}/workforce/crown/rankings`),
+      fetch(`${API}/workforce/crown/promotion`),
+      fetch(`${API}/workforce/crown/platinum`),
+      fetch(`${API}/workforce/crown/gifts`),
+      fetch(`${API}/workforce/crown/cosign`),
+    ]);
+    if (!statusRes.ok) throw new Error(`crown ${statusRes.status}`);
+    const statusData = await statusRes.json();
+    const rankingsData = rankingsRes.ok ? await rankingsRes.json() : null;
+    const promoData = promoRes.ok ? await promoRes.json() : null;
+    const platinumData = platinumRes.ok ? await platinumRes.json() : null;
+    const giftsData = giftsRes.ok ? await giftsRes.json() : null;
+    const cosignData = cosignRes.ok ? await cosignRes.json() : null;
+    renderCrownCompletion(statusData, rankingsData, promoData, platinumData, giftsData, cosignData);
+    if (!quiet) {
+      setLog(`Crown Completion v${statusData.app_version} — ${statusData.workers_awarded} workers platinum awarded`);
+    }
+    return statusData;
+  } catch (e) {
+    console.warn("Crown Completion fetch failed", e);
+    renderCrownCompletion(null);
+    if (!quiet) setLog("Crown Completion unavailable.");
+    return null;
+  }
+}
+
+function startCrownCompletionPolling() {
+  stopCrownCompletionPolling();
+  loadCrownCompletion({ quiet: true }).catch(() => {});
+  state.crownCompletionInterval = setInterval(() => {
+    if (els.crownCompletionPanel?.open) loadCrownCompletion({ quiet: true }).catch(() => {});
+  }, 12000);
+}
+
+function stopCrownCompletionPolling() {
+  if (state.crownCompletionInterval) {
+    clearInterval(state.crownCompletionInterval);
+    state.crownCompletionInterval = null;
+  }
+}
+
+async function grantAllCrownGifts() {
+  if (!els.crownGrantAllBtn) return;
+  els.crownGrantAllBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/crown/grant-all`, { method: "POST" });
+    if (!res.ok) throw new Error(`grant-all ${res.status}`);
+    const body = await res.json();
+    showToast(body.message || "All gifts granted");
+    await loadCrownCompletion({ quiet: true });
+  } catch (e) {
+    console.warn("Crown grant-all failed", e);
+    showToast("Grant failed", true);
+  } finally {
+    els.crownGrantAllBtn.disabled = false;
+  }
+}
+
+async function submitCrownCosign(event) {
+  event.preventDefault();
+  const signer = (els.crownCosignSigner?.value || "").trim();
+  const message = (els.crownCosignMessage?.value || "").trim();
+  if (!signer || !message) {
+    showToast("Name and message required for co-sign", true);
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/workforce/crown/cosign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ signer, message }),
+    });
+    if (!res.ok) throw new Error(`cosign ${res.status}`);
+    if (els.crownCosignMessage) els.crownCosignMessage.value = "";
+    showToast("Co-sign recorded — Crown Completion v1.0");
+    await loadCrownCompletion({ quiet: true });
+  } catch (e) {
+    console.warn("Crown cosign failed", e);
+    showToast("Co-sign failed", true);
+  }
+}
+
+function renderSovereignScale(statusData, hardeningData, tenantsData, nodesData, obsData) {
+  if (!els.sovereignScaleStatus) return;
+  if (!statusData) {
+    els.sovereignScaleStatus.textContent = "Sovereign Scale unavailable.";
+    return;
+  }
+  els.sovereignScaleStatus.textContent =
+    `Phase ${statusData.deployment_phase ?? "?"} · Tenants: ${statusData.tenants_active ?? 0} · ` +
+    `Nodes: ${statusData.nodes_healthy ?? 0}/${statusData.nodes_total ?? 0} · ` +
+    `Capacity: ${statusData.fleet_capacity_score ?? 0} · Scale ready: ${statusData.scale_ready ? "yes" : "no"}`;
+  if (els.sovereignScaleHardening && hardeningData) {
+    els.sovereignScaleHardening.textContent =
+      `Hardening: ${hardeningData.passed ?? 0}/${hardeningData.count ?? 0} checks · ` +
+      (hardeningData.checks || [])
+        .filter((c) => !c.ok && c.required)
+        .map((c) => c.label)
+        .slice(0, 2)
+        .join(", ") || "all required checks green";
+  }
+  if (els.sovereignScaleTenants) {
+    els.sovereignScaleTenants.innerHTML = "";
+    const tenants = Array.isArray(tenantsData?.tenants) ? tenantsData.tenants : [];
+    tenants.slice(0, 6).forEach((tenant) => {
+      const item = document.createElement("li");
+      item.className = "sovereign-tenant-item";
+      item.textContent = `${tenant.name} (${tenant.slug}) · ${tenant.status} · max ${tenant.max_sessions} sessions`;
+      els.sovereignScaleTenants.appendChild(item);
+    });
+  }
+  if (els.sovereignScaleNodes) {
+    els.sovereignScaleNodes.innerHTML = "";
+    const nodes = Array.isArray(nodesData?.nodes) ? nodesData.nodes : [];
+    nodes.slice(0, 6).forEach((node) => {
+      const item = document.createElement("li");
+      item.className = "sovereign-node-item";
+      item.textContent = `${node.hostname} · ${node.region} · ${node.role} · ${node.status} · cap ${node.capacity_score}`;
+      els.sovereignScaleNodes.appendChild(item);
+    });
+  }
+  if (els.sovereignScaleObservability && obsData) {
+    const metrics = obsData.metrics || {};
+    els.sovereignScaleObservability.textContent =
+      `Observability — WebRTC: ${obsData.webrtc_active_sessions ?? 0} · Companions: ${obsData.companion_sessions ?? 0} · ` +
+      `Perform: ${metrics.perform_requests ?? 0} · Tokens: ${metrics.tokens_streamed ?? 0}`;
+  }
+}
+
+async function loadSovereignScale({ quiet = false } = {}) {
+  if (!els.sovereignScaleStatus) return null;
+  try {
+    const [statusRes, hardeningRes, tenantsRes, nodesRes, obsRes] = await Promise.all([
+      fetch(`${API}/workforce/scale`),
+      fetch(`${API}/workforce/scale/hardening`),
+      fetch(`${API}/workforce/scale/tenants?limit=10`),
+      fetch(`${API}/workforce/scale/nodes?limit=10`),
+      fetch(`${API}/workforce/scale/observability`),
+    ]);
+    if (!statusRes.ok) throw new Error(`scale ${statusRes.status}`);
+    const statusData = await statusRes.json();
+    const hardeningData = hardeningRes.ok ? await hardeningRes.json() : null;
+    const tenantsData = tenantsRes.ok ? await tenantsRes.json() : null;
+    const nodesData = nodesRes.ok ? await nodesRes.json() : null;
+    const obsData = obsRes.ok ? await obsRes.json() : null;
+    renderSovereignScale(statusData, hardeningData, tenantsData, nodesData, obsData);
+    if (!quiet) {
+      setLog(`Sovereign Scale — ${statusData.nodes_healthy ?? 0} healthy nodes · capacity ${statusData.fleet_capacity_score ?? 0}`);
+    }
+    return statusData;
+  } catch (e) {
+    console.warn("Sovereign Scale fetch failed", e);
+    renderSovereignScale(null);
+    if (!quiet) setLog("Sovereign Scale unavailable.");
+    return null;
+  }
+}
+
+function startSovereignScalePolling() {
+  stopSovereignScalePolling();
+  loadSovereignScale({ quiet: true }).catch(() => {});
+  state.sovereignScaleInterval = setInterval(() => {
+    if (els.sovereignScalePanel?.open) loadSovereignScale({ quiet: true }).catch(() => {});
+  }, 10000);
+}
+
+function stopSovereignScalePolling() {
+  if (state.sovereignScaleInterval) {
+    clearInterval(state.sovereignScaleInterval);
+    state.sovereignScaleInterval = null;
   }
 }
 
@@ -2759,6 +3790,90 @@ if (els.workforcePanel) {
     if (els.workforcePanel.open) loadWorkforceRoster().catch(() => {});
   });
 }
+if (els.swarmPayoutPanel) {
+  els.swarmPayoutPanel.addEventListener("toggle", () => {
+    if (els.swarmPayoutPanel.open) {
+      startSwarmPayoutPolling();
+    } else {
+      stopSwarmPayoutPolling();
+    }
+  });
+}
+if (els.crownCompletionPanel) {
+  els.crownCompletionPanel.addEventListener("toggle", () => {
+    if (els.crownCompletionPanel.open) {
+      startCrownCompletionPolling();
+    } else {
+      stopCrownCompletionPolling();
+    }
+  });
+}
+if (els.crownGrantAllBtn) {
+  els.crownGrantAllBtn.addEventListener("click", () => {
+    grantAllCrownGifts().catch(() => {});
+  });
+}
+if (els.crownCosignForm) {
+  els.crownCosignForm.addEventListener("submit", (event) => {
+    submitCrownCosign(event).catch(() => {});
+  });
+}
+if (els.sovereignScalePanel) {
+  els.sovereignScalePanel.addEventListener("toggle", () => {
+    if (els.sovereignScalePanel.open) {
+      startSovereignScalePolling();
+    } else {
+      stopSovereignScalePolling();
+    }
+  });
+}
+if (els.liveStagePanel) {
+  els.liveStagePanel.addEventListener("toggle", () => {
+    if (els.liveStagePanel.open) {
+      startLiveStagePolling();
+    } else {
+      stopLiveStagePolling();
+    }
+  });
+}
+if (els.liveCamForm) {
+  els.liveCamForm.addEventListener("submit", (event) => {
+    startLiveCam(event).catch(() => {});
+  });
+}
+if (els.liveDonationForm) {
+  els.liveDonationForm.addEventListener("submit", (event) => {
+    sendLiveDonation(event).catch(() => {});
+  });
+}
+if (els.characterForgePanel) {
+  els.characterForgePanel.addEventListener("toggle", () => {
+    if (els.characterForgePanel.open) {
+      startCharacterForgePolling();
+    } else {
+      stopCharacterForgePolling();
+    }
+  });
+}
+if (els.characterOnboardForm) {
+  els.characterOnboardForm.addEventListener("submit", (event) => {
+    onboardNSMCharacter(event).catch(() => {});
+  });
+}
+if (els.revenueForgePanel) {
+  els.revenueForgePanel.addEventListener("toggle", () => {
+    if (els.revenueForgePanel.open) {
+      startRevenueForgePolling();
+    } else {
+      stopRevenueForgePolling();
+    }
+  });
+}
+if (els.revenueDonationForm) {
+  els.revenueDonationForm.addEventListener("submit", (event) => {
+    routeRevenueDonation(event).catch(() => {});
+  });
+}
 if (els.agentLoungePanel) {
   els.agentLoungePanel.addEventListener("toggle", () => {
     if (els.agentLoungePanel.open) {
@@ -3050,6 +4165,7 @@ updateBondMeter(0);
 updateSendButtonState();
 updateSovereignControls();
 wireExamplePrompts();
+initInnovationLanesDock();
 
 if (els.voiceSelect) {
   els.voiceSelect.addEventListener("change", () => {
