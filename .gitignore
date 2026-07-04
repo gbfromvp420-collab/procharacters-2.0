@@ -20,4 +20,5 @@ htmlcov/
 .idea/
 .vscode/
 *.log
-data/
+data/*
+!data/kgc_continuity_journal.md
