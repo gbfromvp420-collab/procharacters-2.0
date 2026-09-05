@@ -144,8 +144,13 @@ def test_innovation_wire_post(wiring_client: TestClient) -> None:
     body = response.json()
     assert body["wired"] is True
     assert body["readiness"]["all_ready"] is True
+    assert body["pipelines_activated"] is True
+    assert body["effective_providers"]["llm"] == "openai_compatible"
     assert body["env_snippet"] is not None
     assert "LLM_BASE_URL" in body["env_snippet"]
+
+    pipeline = wiring_client.app.state.llm_pipeline
+    assert pipeline.provider == "openai_compatible"
 
 
 def test_build_wiring_report_env_snippet(tmp_path: Path) -> None:

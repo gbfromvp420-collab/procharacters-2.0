@@ -61,6 +61,8 @@ def test_innovation_lanes_list(innovation_client: TestClient) -> None:
     assert body["active_lane_id"] == "real_providers"
     labels = {lane["label"] for lane in body["lanes"]}
     assert labels == {"Real", "Soul", "$", "Live"}
+    soul = next(lane for lane in body["lanes"] if lane["id"] == "companion_soul")
+    assert soul["status"] == "in_progress"
 
 
 def test_real_provider_readiness_mock(innovation_client: TestClient) -> None:

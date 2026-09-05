@@ -902,6 +902,27 @@ class RunPodWireResponse(BaseModel):
     readiness: RunPodWiringReadinessResponse
     env_snippet: str | None = None
     message: str
+    pipelines_activated: bool = False
+    effective_providers: dict[str, str] = Field(default_factory=dict)
+
+
+class SoulStageCatalogItem(BaseModel):
+    id: str
+    label: str
+    min_bond: int
+    overlay: str
+
+
+class CompanionSoulLaneResponse(BaseModel):
+    lane_id: str
+    lane_title: str
+    status: str
+    stages: list[SoulStageCatalogItem]
+    checkin_threshold_hours: float
+    max_memories: int
+    sessions_with_memories: int
+    memories_total: int
+    assist_owner: str
 
 
 class InnovationResponse(BaseModel):
@@ -914,6 +935,8 @@ class InnovationResponse(BaseModel):
     lanes_total: int
     real_providers_ready: bool
     configured_providers: int
+    soul_lane_status: str = "in_progress"
+    live_activate: bool = True
     schema_path: str
 
 

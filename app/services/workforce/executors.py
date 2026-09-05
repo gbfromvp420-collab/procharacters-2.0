@@ -57,6 +57,29 @@ async def _exec_crown_completion(prompt: str, ctx: WorkforceContext) -> str:
     )
 
 
+async def _exec_innovation_wire(prompt: str, ctx: WorkforceContext) -> str:
+    from app.core.runpod_wiring import build_wiring_report
+
+    report = build_wiring_report(ctx.settings)
+    readiness = report.get("readiness", {})
+    return (
+        f"Innovation wire — wired={readiness.get('wired')} "
+        f"ready={readiness.get('all_ready')} "
+        f"llm={readiness.get('llm_ready')} tts={readiness.get('tts_ready')} "
+        f"video={readiness.get('video_ready')}. "
+        f"Note: {prompt[:200]}"
+    )
+
+
+async def _exec_companion_soul(prompt: str, ctx: WorkforceContext) -> str:
+    stats = ctx.companion_store.soul_memory_stats()
+    return (
+        f"Companion soul — memories={stats['memories_total']} "
+        f"sessions={stats['sessions_with_memories']}. "
+        f"Note: {prompt[:220]}"
+    )
+
+
 async def _exec_crown_soul_slot(prompt: str, ctx: WorkforceContext) -> str:
     promo = ctx.crown_completion.get_promotion()
     return (
@@ -234,6 +257,10 @@ _SKILL_EXECUTORS: dict[str, SkillExecutor] = {
     "Crown_Legacy_Archive": _exec_crown_completion,
     "Crown_Completion_Authority": _exec_crown_completion,
     "Crown_Soul_Slot": _exec_crown_soul_slot,
+    "Innovation_Wire_Authority": _exec_innovation_wire,
+    "RunPod_LiveActivate_NoRestart": _exec_innovation_wire,
+    "Companion_Soul_Authority": _exec_companion_soul,
+    "SoulMemory_Checkin_Stages": _exec_companion_soul,
 }
 
 

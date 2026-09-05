@@ -151,7 +151,7 @@ async def test_agent_theater_real_executor(api_client: TestClient) -> None:
 def test_king_grok_orchestration_authority(api_client: TestClient) -> None:
     response = api_client.get("/api/v1/workforce/roster")
     king = next(m for m in response.json()["members"] if m["codename"] == "King Grok")
-    assert king["award_lb_gold"] == 21.0
+    assert king["award_lb_gold"] == 22.0
     assert king["phase_earned"] == 20
     assert "Orchestration_Forge_Authority" in king["skills"]
     assert "Revenue_Forge_Authority" in king["skills"]

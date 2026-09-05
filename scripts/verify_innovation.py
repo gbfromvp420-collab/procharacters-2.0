@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Innovation Lane 1 verification: pytest + innovation API smoke."""
+"""Innovation Lanes 1–2 verification: live-activate wiring + companion soul."""
 
 from __future__ import annotations
 
@@ -64,6 +64,29 @@ def _probe_innovation() -> int:
             return 1
         w = wiring.json().get("readiness", {})
         print(f"  wiring wired={w.get('wired')} ready={w.get('all_ready')}")
+
+        soul = client.get(f"{BASE}/workforce/innovation/soul")
+        if soul.status_code != 200:
+            print(f"/workforce/innovation/soul failed: {soul.status_code}")
+            return 1
+        soul_body = soul.json()
+        if soul_body.get("lane_id") != "companion_soul" or len(soul_body.get("stages", [])) != 5:
+            print("Expected companion soul lane with 5 stages")
+            return 1
+        print(f"  soul stages={len(soul_body.get('stages', []))} owner={soul_body.get('assist_owner')}")
+
+        pin = client.post(
+            f"{BASE}/companion/innovation-verify/soul/memories",
+            json={"title": "Verify held", "body": "Lane 2 smoke"},
+        )
+        if pin.status_code != 200:
+            print(f"soul pin failed: {pin.status_code}")
+            return 1
+        checkin = client.get(f"{BASE}/companion/innovation-verify/soul/checkin")
+        if checkin.status_code != 200 or not checkin.json().get("greeting"):
+            print("soul checkin failed")
+            return 1
+        print(f"  soul checkin={checkin.json().get('soul_stage_label')}")
         return 0
 
 
@@ -77,7 +100,7 @@ def main() -> int:
         return 1
 
     if args.skip_probes:
-        print("INNOVATION LANE 1 VERIFY OK (pytest only)")
+        print("INNOVATION LANES 1–2 VERIFY OK (pytest only)")
         return 0
 
     server_proc: subprocess.Popen | None = None
@@ -113,7 +136,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    print("INNOVATION LANE 1 VERIFY OK")
+    print("INNOVATION LANES 1–2 VERIFY OK")
     return 0
 
 

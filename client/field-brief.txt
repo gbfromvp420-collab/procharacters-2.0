@@ -1,6 +1,6 @@
 PROCHARACTERS CLOUD — FIELD BRIEF
-v1.0.0 · Phase 20 · Crown Complete
-Boss Sr. · King Grok · 26 workers
+v1.0.0 · Phase 20 · Innovation Lanes 1–2
+Boss Sr. · King Grok · 28 workers
 
 SAVE THIS FILE on your phone (download, email to self, Files app).
 
@@ -8,25 +8,30 @@ SAVE THIS FILE on your phone (download, email to self, Files app).
 INNOVATION — ACTIVE NOW
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-LANE 1 · REAL (wire — no new RunPod needed)
+LANE 1 · REAL (wire + live activate — no restart)
   If you already have pods: paste 3 Connect proxy URLs
   1 · LLM (vLLM) — ends with /v1
   2 · TTS — POST /synthesize
   3 · Video — POST /generate
 
   WIRE (pick one):
+  · UI: open Innovation · Wire → paste URLs → Wire + live activate
   · POST /api/v1/workforce/innovation/wire
     { llm_base_url, tts_base_url, video_base_url, enabled: true }
   · python scripts/wire_runpod.py --llm URL --tts URL --video URL --enable
-  · Edit data/runpod_wiring.json → enabled: true
 
+  Pipelines hot-reload. No server restart.
   CHECK: GET /api/v1/workforce/innovation/wiring
   SMOKE: POST /api/v1/providers/forge/smoke
 
-API: /api/v1/workforce/innovation/real
+LANE 2 · SOUL (Assist's platinum lane)
+  Named memories, soul stages, check-in greeting.
+  UI: Companion Soul panel · Soul badge next to bond meter
+  PIN:  POST /api/v1/companion/{session}/soul/memories
+  READ: GET  /api/v1/companion/{session}/soul/checkin
+  LANE: GET  /api/v1/workforce/innovation/soul
 
 OTHER LANES (queued)
-2 · SOUL — Companion depth
 3 · $ — Characters + revenue
 4 · LIVE — Stage + launch
 
@@ -34,12 +39,11 @@ OTHER LANES (queued)
 TODAY'S WINS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-• Phase 20 Crown Completion shipped
-• Pure Platinum $5K × 26 workers ($130K)
-• Boss Sr. yes to everything — 8 gifts granted
-• Assist promoted — Soul Slot — 4lb gold
-• AI Swarm Payout matrix live
-• 197 tests passing
+• Lane 1 live-activate — wire URLs, pipelines go real without restart
+• Lane 2 Companion Soul — memories, stages, check-in
+• InnovationForge_Wire_Sub_01 + CompanionSoul_Depth_Sub_01 hired
+• King Grok 22lb · Innovation_Wire + Companion_Soul authorities
+• 28 workers on the roster
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SWARM PAYOUT MATRIX

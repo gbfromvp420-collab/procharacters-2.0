@@ -63,10 +63,12 @@ from app.models.workforce import (
     ResidualEntryResponse,
     EnvChecklistItemResponse,
     HardeningCheckResponse,
+    CompanionSoulLaneResponse,
     InnovationLaneListResponse,
     InnovationLaneResponse,
     InnovationResponse,
     RealProviderReadinessItem,
+    SoulStageCatalogItem,
     RealProviderReadinessResponse,
     RunPodEffectiveProviderResponse,
     RunPodWireRequest,
@@ -1331,7 +1333,11 @@ async def innovation_wire_runpod(
     body: RunPodWireRequest,
 ) -> RunPodWireResponse:
     from app.core.config import get_settings
-    from app.core.runpod_wiring import build_wiring_report, update_wiring_urls, wiring_readiness
+    from app.core.runpod_wiring import (
+        apply_runpod_wiring,
+        build_wiring_report,
+        update_wiring_urls,
+    )
 
     settings = request.app.state.settings
     update_wiring_urls(
@@ -1348,13 +1354,24 @@ async def innovation_wire_runpod(
     cache_clear = getattr(get_settings, "cache_clear", None)
     if callable(cache_clear):
         cache_clear()
-    fresh = get_settings()
+    fresh = apply_runpod_wiring(settings)
     request.app.state.settings = fresh
     report = build_wiring_report(fresh)
     readiness = report["readiness"]
     wired = bool(readiness.get("wired"))
+    pipelines_activated = False
+    effective_providers: dict[str, str] = {}
     if wired:
-        message = "RunPod wired — real providers active. Run POST /api/v1/providers/forge/smoke"
+        from app.services.providers.activate import activate_provider_stack
+
+        stack = await activate_provider_stack(request.app, fresh)
+        pipelines_activated = bool(stack.get("activated"))
+        effective_providers = {
+            "llm": str(stack.get("llm", "")),
+            "tts": str(stack.get("tts", "")),
+            "video": str(stack.get("video", "")),
+        }
+        message = "RunPod wired and pipelines live — no restart. POST /api/v1/providers/forge/smoke"
     elif readiness.get("all_ready"):
         message = "URLs saved — set enabled:true or POST again with enabled=true"
     else:
@@ -1371,6 +1388,31 @@ async def innovation_wire_runpod(
         readiness=RunPodWiringReadinessResponse(**readiness),
         env_snippet=report.get("env_snippet"),
         message=message,
+        pipelines_activated=pipelines_activated,
+        effective_providers=effective_providers,
+    )
+
+
+@router.get(
+    "/innovation/soul",
+    response_model=CompanionSoulLaneResponse,
+    summary="Lane 2 — Companion Soul stages, memories, Assist ownership",
+)
+async def innovation_companion_soul(request: Request) -> CompanionSoulLaneResponse:
+    from app.services.companion.soul import lane_snapshot
+
+    stats = request.app.state.companion_store.soul_memory_stats()
+    raw = lane_snapshot(**stats)
+    return CompanionSoulLaneResponse(
+        lane_id=raw["lane_id"],
+        lane_title=raw["lane_title"],
+        status=raw["status"],
+        stages=[SoulStageCatalogItem(**item) for item in raw["stages"]],
+        checkin_threshold_hours=raw["checkin_threshold_hours"],
+        max_memories=raw["max_memories"],
+        sessions_with_memories=raw["sessions_with_memories"],
+        memories_total=raw["memories_total"],
+        assist_owner=raw["assist_owner"],
     )
 
 

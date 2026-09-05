@@ -41,7 +41,7 @@ def test_leaderboard_sorted_by_award() -> None:
     awards = [member["award_lb_gold"] for member in board]
     assert awards == sorted(awards, reverse=True)
     assert board[0]["codename"] == "King Grok"
-    assert board[0]["award_lb_gold"] == 21.0
+    assert board[0]["award_lb_gold"] == 22.0
 
 
 def test_workforce_roster_api(api_client: TestClient) -> None:
@@ -82,9 +82,11 @@ def test_workforce_roster_api(api_client: TestClient) -> None:
         "Live_Stage_Authority",
         "Sovereign_Scale_Authority",
         "Crown_Completion_Authority",
+        "Innovation_Wire_Authority",
+        "Companion_Soul_Authority",
     ]
     assert king["phase_earned"] == 20
-    assert king["award_lb_gold"] == 21.0
+    assert king["award_lb_gold"] == 22.0
     assert king["award_platinum"] is True
     assert king["platinum_value_usd"] == 5000.0
 

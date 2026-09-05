@@ -72,8 +72,8 @@ _DEFAULT_SCHEMA: dict[str, Any] = {
             "rank": 2,
             "label": "Soul",
             "title": "Companion Depth",
-            "summary": "Relationship modes, bond, memory, presence — Assist's platinum lane.",
-            "status": "queued",
+            "summary": "Named memories, soul stages, check-in — Assist's platinum lane.",
+            "status": "in_progress",
         },
         {
             "id": "characters_revenue",
@@ -213,5 +213,7 @@ class InnovationLanes:
             "lanes_total": len(self.list_lanes()),
             "real_providers_ready": real["all_real_ready"],
             "configured_providers": real["configured_providers"],
+            "soul_lane_status": "in_progress",
+            "live_activate": True,
             "schema_path": self._schema_path,
         }

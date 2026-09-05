@@ -62,7 +62,7 @@ def main() -> int:
     readiness = wiring_readiness(wiring)
     print(json.dumps(readiness, indent=2))
     if readiness["wired"]:
-        print("\nRunPod wired. Restart server if running, then forge smoke.")
+        print("\nRunPod wired. If the API server is running, POST /workforce/innovation/wire to live-activate without restart, then forge smoke.")
         return 0
     if readiness["all_ready"]:
         print("\nURLs saved. Re-run with --enable to activate.")

@@ -20,7 +20,7 @@ help:
 	@echo "  make verify-live         Phase 18: pytest + live stage API"
 	@echo "  make verify-scale        Phase 19: pytest + sovereign scale API"
 	@echo "  make verify-empire-complete Phase 20: pytest + crown completion v1.0"
-	@echo "  make verify-innovation     Lane 1: pytest + real provider innovation API"
+	@echo "  make verify-innovation     Lanes 1–2: wire live-activate + companion soul"
 	@echo "  make docker-build   Build production image"
 	@echo "  make docker-up      Start docker compose stack"
 	@echo "  make docker-down    Stop docker compose stack"

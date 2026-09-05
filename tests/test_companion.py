@@ -119,7 +119,9 @@ def test_build_llm_messages_with_memory(store: SessionCompanionStore):
         use_memory=True,
     )
 
-    assert built[0] == ChatMessage(role="system", content="You are a test companion.")
+    assert built[0].role == "system"
+    assert built[0].content.startswith("You are a test companion.")
+    assert "[Soul depth]" in built[0].content
     assert built[1].content == "Earlier question"
     assert built[2].content == "Earlier answer"
     assert built[3].content == "Follow-up"
@@ -235,7 +237,8 @@ def test_build_llm_messages_without_relationship_mode_has_no_overlay(
         use_memory=False,
     )
 
-    assert built[0].content == "You are a test companion."
+    assert built[0].content.startswith("You are a test companion.")
+    assert "[Soul depth]" in built[0].content
 
 
 @pytest.fixture

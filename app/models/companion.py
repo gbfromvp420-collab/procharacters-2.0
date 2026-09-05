@@ -63,6 +63,9 @@ class CompanionConfig(BaseModel):
     last_active_at: str = Field(
         description="ISO-8601 UTC timestamp of the most recent companion activity.",
     )
+    soul_stage: str = Field(default="acquaintance", description="Innovation Lane 2 soul stage id.")
+    soul_stage_label: str = Field(default="Acquaintance", description="Soul stage display label.")
+    soul_memory_count: int = Field(default=0, ge=0, description="Pinned soul memories for this session.")
 
 
 class CompanionSessionSummary(BaseModel):
@@ -135,6 +138,14 @@ class BondMilestoneEvent(BaseModel):
     bond_score: int = Field(ge=0, le=100)
 
 
+class SoulMemoryItem(BaseModel):
+    id: str
+    title: str
+    body: str
+    source: str
+    created_at: str
+
+
 class CompanionBundleResponse(BaseModel):
     session_id: str
     avatar_id: str
@@ -144,6 +155,7 @@ class CompanionBundleResponse(BaseModel):
     bond_score: int = Field(default=0, ge=0, le=100)
     milestones_unlocked: list[str] = Field(default_factory=list)
     memory_summary: str = ""
+    soul_memories: list[SoulMemoryItem] = Field(default_factory=list)
     messages: list[ChatMessage] = Field(default_factory=list)
     turn_count: int = Field(default=0, ge=0)
     created_at: str
@@ -167,6 +179,7 @@ class ImportSessionRequest(BaseModel):
     bond_score: int | None = Field(default=None, ge=0, le=100)
     milestones_unlocked: list[str] | None = None
     memory_summary: str | None = None
+    soul_memories: list[SoulMemoryItem] | None = None
     messages: list[ChatMessage] | None = None
     turn_count: int | None = Field(default=None, ge=0)
     created_at: str | None = None
@@ -178,4 +191,41 @@ class ImportSessionRequest(BaseModel):
 
 
 class ImportSessionResponse(BaseModel):
+    session_id: str
+
+
+class SoulMemoryPinRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(default="", max_length=2000)
+    source: str = Field(default="pinned", max_length=32)
+
+
+class SoulCheckinResponse(BaseModel):
+    greeting: str
+    returning: bool
+    hours_away: float
+    soul_stage: str
+    soul_stage_label: str
+    bond_score: int
+    relationship_mode: str = ""
+    memory_count: int
+    latest_memory: SoulMemoryItem | None = None
+    checkin_threshold_hours: float
+
+
+class SoulSnapshotResponse(BaseModel):
+    session_id: str
+    soul_stage: str
+    soul_stage_label: str
+    bond_score: int
+    relationship_mode: str = ""
+    memory_count: int
+    memories: list[SoulMemoryItem]
+    checkin: SoulCheckinResponse
+    overlay: str
+
+
+class SoulMemoryListResponse(BaseModel):
+    memories: list[SoulMemoryItem]
+    count: int
     session_id: str
