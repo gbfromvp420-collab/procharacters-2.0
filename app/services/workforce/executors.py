@@ -97,6 +97,23 @@ async def _exec_character_revenue(prompt: str, ctx: WorkforceContext) -> str:
     )
 
 
+async def _exec_live_launch(prompt: str, ctx: WorkforceContext) -> str:
+    from app.services.workforce.live_launch import LiveLaunchLane
+
+    lane = LiveLaunchLane(
+        live=ctx.live_stage,
+        lounge=ctx.agent_lounge,
+        launch_path=ctx.settings.live_launch_path,
+    )
+    snap = lane.snapshot()
+    return (
+        f"Lane 4 Live — launch={snap['launch_live']} "
+        f"checks={snap['checks_ready']}/{snap['checks_total']} "
+        f"headline={snap['headline_status']}. "
+        f"Note: {prompt[:200]}"
+    )
+
+
 async def _exec_crown_soul_slot(prompt: str, ctx: WorkforceContext) -> str:
     promo = ctx.crown_completion.get_promotion()
     return (
@@ -280,6 +297,8 @@ _SKILL_EXECUTORS: dict[str, SkillExecutor] = {
     "SoulMemory_Checkin_Stages": _exec_companion_soul,
     "Characters_Revenue_Authority": _exec_character_revenue,
     "NSM_Pipeline_EarningsRollup": _exec_character_revenue,
+    "Live_Launch_Authority": _exec_live_launch,
+    "LiveLaunch_Headline_PublicBoard": _exec_live_launch,
 }
 
 

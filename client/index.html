@@ -243,6 +243,15 @@
                 </ul>
               </div>
             </details>
+            <details id="innovationLivePanel" class="innovation-live-panel">
+              <summary>Innovation · Live</summary>
+              <div class="innovation-live-body">
+                <div id="innovationLiveStatus" class="innovation-live-status" aria-live="polite">Expand to load launch…</div>
+                <ul id="innovationLiveChecks" class="innovation-live-checks" aria-live="polite"></ul>
+                <button id="innovationGoLiveBtn" class="btn-ghost" type="button">Go live</button>
+                <div id="innovationLiveBoard" class="innovation-live-board" aria-live="polite">Public board loads with the lane.</div>
+              </div>
+            </details>
             <details id="swarmPayoutPanel" class="swarm-payout-panel">
               <summary>AI Swarm Payout</summary>
               <div class="swarm-payout-body">
@@ -401,7 +410,7 @@
           <button type="button" class="lane-chip" data-lane="providers" title="Real providers — RunPod LLM/TTS/Video">Real</button>
           <button type="button" class="lane-chip" data-lane="companion" title="Companion depth — relationship UX, bond, presence">Soul</button>
           <button type="button" class="lane-chip" data-lane="money" title="Characters + revenue">$</button>
-          <button type="button" class="lane-chip" data-lane="live" title="Live Stage + launch">Live</button>
+          <button type="button" class="lane-chip" data-lane="live" title="Live Launch — Assist headline + public board">Live</button>
         </div>
         <select id="empireNavSelect" class="empire-nav-select" aria-label="Open empire panel">
           <option value="">More…</option>
@@ -415,6 +424,7 @@
             <option value="panel:innovationPanel">Innovation Wire</option>
             <option value="panel:companionSoulPanel">Companion Soul</option>
             <option value="panel:innovationMoneyPanel">Characters + $</option>
+            <option value="panel:innovationLivePanel">Innovation Live</option>
             <option value="panel:swarmPayoutPanel">Swarm Payout</option>
             <option value="panel:crownCompletionPanel">Crown</option>
             <option value="panel:liveStagePanel">Live Stage</option>

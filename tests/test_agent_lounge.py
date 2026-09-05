@@ -78,6 +78,21 @@ def test_agent_lounge_comment_post_and_list(lounge_client: TestClient) -> None:
     assert body["comments"][0]["message"] == created["message"]
 
 
+def test_agent_lounge_comments_markdown_mirror(
+    lounge_client: TestClient, tmp_path: Path
+) -> None:
+    lounge_client.post(
+        "/api/v1/workforce/lounge/comments",
+        json={"codename": "King Grok", "message": "Doors open — comments board v1"},
+    )
+    comments_md = tmp_path / "agent_lounge_comments.md"
+    assert comments_md.is_file()
+    text = comments_md.read_text(encoding="utf-8")
+    assert "Agent Lounge — Comment Board" in text
+    assert "King Grok" in text
+    assert "Doors open" in text
+
+
 def test_dispatch_injects_lounge_context(lounge_client: TestClient) -> None:
     member = next(m for m in WORKFORCE_ROSTER if m["codename"] == "AgentLounge_Culture_Sub_01")
     dispatch = lounge_client.post(

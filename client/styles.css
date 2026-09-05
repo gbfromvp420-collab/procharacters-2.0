@@ -1111,6 +1111,60 @@ body.has-lanes-dock .toast {
   font-style: italic;
 }
 
+.innovation-live-panel {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.innovation-live-panel summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  color: #f0b429;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.innovation-live-panel summary:hover {
+  opacity: 0.85;
+}
+
+.innovation-live-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.innovation-live-status,
+.innovation-live-board {
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.innovation-live-checks {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.66rem;
+}
+
+.innovation-live-check-ready {
+  color: #7dd3a8;
+}
+
+.innovation-live-check-wait {
+  color: var(--muted);
+}
+
+.innovation-live-board {
+  padding: 8px;
+  border: 1px solid rgba(240, 180, 41, 0.28);
+  border-radius: 8px;
+}
+
 .workforce-roster {
   display: grid;
   gap: 6px;
@@ -2212,6 +2266,7 @@ body.has-lanes-dock .toast {
   .innovation-panel summary,
   .companion-soul-panel summary,
   .innovation-money-panel summary,
+  .innovation-live-panel summary,
   .swarm-payout-panel summary,
   .crown-completion-panel summary,
   .sovereign-scale-panel summary,

@@ -88,8 +88,8 @@ _DEFAULT_SCHEMA: dict[str, Any] = {
             "rank": 4,
             "label": "Live",
             "title": "Live Launch",
-            "summary": "Cam chat, ticketed shows, Assist headline, public v1.0.",
-            "status": "queued",
+            "summary": "Assist headline night, public board, stage-door lounge comments.",
+            "status": "in_progress",
         },
     ],
     "version": 1,
@@ -215,6 +215,7 @@ class InnovationLanes:
             "configured_providers": real["configured_providers"],
             "soul_lane_status": "in_progress",
             "money_lane_status": "in_progress",
+            "live_lane_status": "in_progress",
             "live_activate": True,
             "schema_path": self._schema_path,
         }

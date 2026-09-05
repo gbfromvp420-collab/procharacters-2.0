@@ -185,6 +185,28 @@ class AgentLounge:
         tmp = path.with_suffix(path.suffix + ".tmp")
         tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         tmp.replace(path)
+        self._mirror_comments_markdown()
+
+    def comments_markdown_path(self) -> str:
+        return str(Path(self._comments_path).with_suffix(".md"))
+
+    def _mirror_comments_markdown(self) -> None:
+        """Append-only lounge board as markdown — Lane 4 stage door / comments v1."""
+        path = Path(self.comments_markdown_path())
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            "# Agent Lounge — Comment Board",
+            "",
+            f"> {self.welcome_message}",
+            "",
+        ]
+        for comment in self._comments:
+            stamp = comment.created_at.isoformat()
+            lines.append(f"## {stamp} — {comment.codename}")
+            lines.append("")
+            lines.append(comment.message)
+            lines.append("")
+        path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
     def add_comment(
         self,

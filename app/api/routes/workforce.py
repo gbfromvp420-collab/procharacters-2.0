@@ -69,6 +69,11 @@ from app.models.workforce import (
     CompanionSoulLaneResponse,
     FirstDollarRequest,
     FirstDollarResponse,
+    GoLiveResponse,
+    LaunchBoardResponse,
+    LaunchReadinessItem,
+    LaunchReadinessResponse,
+    LiveLaunchLaneResponse,
     InnovationLaneListResponse,
     NsmPipelineResponse,
     NsmPipelineStepResponse,
@@ -1508,6 +1513,69 @@ async def innovation_money_first_dollar(
         amount_cents=raw["amount_cents"],
         donation_payout_percent=raw["donation_payout_percent"],
         earnings=CharacterEarningsRowResponse(**earnings) if isinstance(earnings, dict) else None,
+        message=raw["message"],
+    )
+
+
+def _live_launch_lane(request: Request):
+    from app.services.workforce.live_launch import LiveLaunchLane
+
+    return LiveLaunchLane(
+        live=request.app.state.live_stage,
+        lounge=request.app.state.agent_lounge,
+        launch_path=request.app.state.settings.live_launch_path,
+    )
+
+
+@router.get(
+    "/innovation/live",
+    response_model=LiveLaunchLaneResponse,
+    summary="Lane 4 — Live Launch status",
+)
+async def innovation_live_status(request: Request) -> LiveLaunchLaneResponse:
+    return LiveLaunchLaneResponse(**_live_launch_lane(request).snapshot())
+
+
+@router.get(
+    "/innovation/live/readiness",
+    response_model=LaunchReadinessResponse,
+    summary="Live Launch readiness checklist",
+)
+async def innovation_live_readiness(request: Request) -> LaunchReadinessResponse:
+    checks = [LaunchReadinessItem(**item) for item in _live_launch_lane(request).readiness()]
+    return LaunchReadinessResponse(
+        checks=checks,
+        count=len(checks),
+        ready_count=sum(1 for item in checks if item.ready),
+    )
+
+
+@router.get(
+    "/innovation/live/board",
+    response_model=LaunchBoardResponse,
+    summary="Public Live Launch board",
+)
+async def innovation_live_board(request: Request) -> LaunchBoardResponse:
+    return LaunchBoardResponse(**_live_launch_lane(request).public_board())
+
+
+@router.post(
+    "/innovation/live/go-live",
+    response_model=GoLiveResponse,
+    summary="Open doors — Assist headline + launch cam + public board",
+)
+async def innovation_live_go_live(request: Request) -> GoLiveResponse:
+    raw = _live_launch_lane(request).go_live()
+    return GoLiveResponse(
+        live=raw["live"],
+        headline_session_id=raw["headline_session_id"],
+        cam_session_id=raw["cam_session_id"],
+        ticket_id=raw["ticket_id"],
+        donation_id=raw["donation_id"],
+        donation_payout_percent=raw["donation_payout_percent"],
+        comment_id=raw["comment_id"],
+        launched_at=raw["launched_at"],
+        board=LaunchBoardResponse(**raw["board"]),
         message=raw["message"],
     )
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Innovation Lanes 1–3 verification: wire, soul, and character revenue."""
+"""Innovation Lanes 1–4 verification: wire, soul, character revenue, live launch."""
 
 from __future__ import annotations
 
@@ -107,11 +107,34 @@ def _probe_innovation() -> int:
             f"  money pipeline={pipeline.json().get('count')} "
             f"first_dollar={first.json().get('amount_cents')}c"
         )
+
+        print("=== Innovation Lane 4 (Live Launch) ===")
+        live = client.get(f"{BASE}/workforce/innovation/live")
+        if live.status_code != 200 or live.json().get("lane_id") != "live_launch":
+            print("Expected live_launch lane")
+            return 1
+        readiness = client.get(f"{BASE}/workforce/innovation/live/readiness")
+        if readiness.status_code != 200 or readiness.json().get("count") != 7:
+            print("Expected 7 live readiness checks")
+            return 1
+        go = client.post(f"{BASE}/workforce/innovation/live/go-live")
+        if go.status_code != 200 or not go.json().get("live"):
+            print(f"go-live failed: {go.status_code}")
+            return 1
+        board = client.get(f"{BASE}/workforce/innovation/live/board")
+        if board.status_code != 200 or board.json().get("status") != "live":
+            print("Expected public board status=live")
+            return 1
+        print(
+            f"  live checks={readiness.json().get('count')} "
+            f"headline={board.json().get('headline_status')} "
+            f"board={board.json().get('status')}"
+        )
         return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Innovation Lane 1 verification")
+    parser = argparse.ArgumentParser(description="Run Innovation Lanes 1–4 verification")
     parser.add_argument("--start-server", action="store_true")
     parser.add_argument("--skip-probes", action="store_true")
     args = parser.parse_args()
@@ -120,7 +143,7 @@ def main() -> int:
         return 1
 
     if args.skip_probes:
-        print("INNOVATION LANES 1–3 VERIFY OK (pytest only)")
+        print("INNOVATION LANES 1–4 VERIFY OK (pytest only)")
         return 0
 
     server_proc: subprocess.Popen | None = None
@@ -156,7 +179,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    print("INNOVATION LANES 1–3 VERIFY OK")
+    print("INNOVATION LANES 1–4 VERIFY OK")
     return 0
 
 

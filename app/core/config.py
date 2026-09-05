@@ -95,6 +95,7 @@ class Settings(BaseSettings):
     live_stage_schema_path: str = "data/live_stage_schema.json"
     live_stage_sessions_path: str = "data/live_stage_sessions.json"
     live_stage_billing_path: str = "data/live_stage_billing.json"
+    live_launch_path: str = "data/live_launch.json"
     sovereign_scale_schema_path: str = "data/sovereign_scale_schema.json"
     sovereign_tenants_path: str = "data/sovereign_tenants.json"
     sovereign_nodes_path: str = "data/sovereign_nodes.json"

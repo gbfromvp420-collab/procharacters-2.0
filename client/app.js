@@ -196,6 +196,11 @@ const els = {
   innovationMoneyPipeline: document.getElementById("innovationMoneyPipeline"),
   innovationFirstDollarBtn: document.getElementById("innovationFirstDollarBtn"),
   innovationMoneyEarnings: document.getElementById("innovationMoneyEarnings"),
+  innovationLivePanel: document.getElementById("innovationLivePanel"),
+  innovationLiveStatus: document.getElementById("innovationLiveStatus"),
+  innovationLiveChecks: document.getElementById("innovationLiveChecks"),
+  innovationGoLiveBtn: document.getElementById("innovationGoLiveBtn"),
+  innovationLiveBoard: document.getElementById("innovationLiveBoard"),
   soulStageBadge: document.getElementById("soulStageBadge"),
   soulStageLabel: document.getElementById("soulStageLabel"),
   innovationLanesDock: document.getElementById("innovationLanesDock"),
@@ -633,6 +638,7 @@ const LANE_PANEL_LOADERS = {
   innovationPanel: () => loadInnovationPanel({ quiet: true }).catch(() => {}),
   companionSoulPanel: () => loadCompanionSoulPanel({ quiet: true }).catch(() => {}),
   innovationMoneyPanel: () => loadInnovationMoneyPanel({ quiet: true }).catch(() => {}),
+  innovationLivePanel: () => loadInnovationLivePanel({ quiet: true }).catch(() => {}),
   swarmPayoutPanel: () => startSwarmPayoutPolling(),
   crownCompletionPanel: () => startCrownCompletionPolling(),
   sovereignScalePanel: () => startSovereignScalePolling(),
@@ -674,7 +680,7 @@ function activateInnovationLane(lane, { quiet = false } = {}) {
     providers: "Lane: Real providers — paste RunPod URLs, live activate, forge smoke",
     companion: "Lane: Companion Soul — named memories, stages, check-in",
     money: "Lane: $ — NSM pipeline, earnings rollup, first dollar",
-    live: "Lane: Live launch — ticketed shows and crown headline",
+    live: "Lane: Live — Assist headline, public board, lounge comments",
   };
 
   if (lane === "providers") {
@@ -686,8 +692,7 @@ function activateInnovationLane(lane, { quiet = false } = {}) {
   } else if (lane === "money") {
     openEmpirePanel("innovationMoneyPanel");
   } else if (lane === "live") {
-    openEmpirePanel("liveStagePanel");
-    openEmpirePanel("crownCompletionPanel");
+    openEmpirePanel("innovationLivePanel");
   }
 
   if (!quiet && messages[lane]) setLog(messages[lane]);
@@ -1010,6 +1015,79 @@ async function runFirstDollar() {
     showToast(`First dollar failed: ${error.message || error}`, true);
   } finally {
     if (els.innovationFirstDollarBtn) els.innovationFirstDollarBtn.disabled = false;
+  }
+}
+
+function renderInnovationLiveBoard(board) {
+  if (!els.innovationLiveBoard) return;
+  if (!board) {
+    els.innovationLiveBoard.textContent = "Public board unavailable.";
+    return;
+  }
+  const ticket = formatCents(board.ticket_price_cents);
+  els.innovationLiveBoard.innerHTML = "";
+  const title = document.createElement("div");
+  title.textContent = `${board.title} · ${board.status}`;
+  const host = document.createElement("div");
+  host.textContent = `Host ${board.host} · ${board.headline_title} (${board.headline_status})`;
+  const cam = document.createElement("div");
+  cam.textContent = `${board.cam_title} · ${board.cam_status} · ticket ${ticket}`;
+  const doors = document.createElement("div");
+  doors.textContent = board.doors || "";
+  els.innovationLiveBoard.append(title, host, cam, doors);
+}
+
+async function loadInnovationLivePanel({ quiet = false } = {}) {
+  if (!els.innovationLiveStatus) return;
+  try {
+    const [statusRes, readyRes, boardRes] = await Promise.all([
+      fetch(`${API}/workforce/innovation/live`),
+      fetch(`${API}/workforce/innovation/live/readiness`),
+      fetch(`${API}/workforce/innovation/live/board`),
+    ]);
+    if (!statusRes.ok || !readyRes.ok || !boardRes.ok) {
+      els.innovationLiveStatus.textContent = "Live launch unavailable.";
+      return;
+    }
+    const status = await statusRes.json();
+    const ready = await readyRes.json();
+    const board = await boardRes.json();
+    els.innovationLiveStatus.textContent =
+      `${status.lane_title} · ${status.checks_ready}/${status.checks_total} ready · ` +
+      `${status.launch_live ? "doors open" : "doors closed"} · headline ${status.headline_status}`;
+    if (els.innovationLiveChecks) {
+      els.innovationLiveChecks.innerHTML = "";
+      (ready.checks || []).forEach((check) => {
+        const item = document.createElement("li");
+        item.className = check.ready ? "innovation-live-check-ready" : "innovation-live-check-wait";
+        item.textContent = `${check.ready ? "Ready" : "Wait"} · ${check.label}`;
+        els.innovationLiveChecks.appendChild(item);
+      });
+    }
+    renderInnovationLiveBoard(board);
+    if (!quiet) {
+      setLog(`Live: ${status.checks_ready}/${status.checks_total} ready · ${board.status}`);
+    }
+  } catch (error) {
+    els.innovationLiveStatus.textContent = "Live launch failed to load.";
+    if (!quiet) setLog(`Live error: ${error.message || error}`);
+  }
+}
+
+async function runGoLive() {
+  if (els.innovationGoLiveBtn) els.innovationGoLiveBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/innovation/live/go-live`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `go-live ${res.status}`);
+    setLog(body.message || "Live. Doors open.");
+    showToast(body.message || "Live. Doors open.");
+    await loadInnovationLivePanel({ quiet: true });
+  } catch (error) {
+    setLog(`Go live failed: ${error.message || error}`);
+    showToast(`Go live failed: ${error.message || error}`, true);
+  } finally {
+    if (els.innovationGoLiveBtn) els.innovationGoLiveBtn.disabled = false;
   }
 }
 
@@ -4147,6 +4225,16 @@ if (els.innovationMoneyPanel) {
 if (els.innovationFirstDollarBtn) {
   els.innovationFirstDollarBtn.addEventListener("click", () => {
     runFirstDollar().catch(() => {});
+  });
+}
+if (els.innovationLivePanel) {
+  els.innovationLivePanel.addEventListener("toggle", () => {
+    if (els.innovationLivePanel.open) loadInnovationLivePanel().catch(() => {});
+  });
+}
+if (els.innovationGoLiveBtn) {
+  els.innovationGoLiveBtn.addEventListener("click", () => {
+    runGoLive().catch(() => {});
   });
 }
 if (els.swarmPayoutPanel) {

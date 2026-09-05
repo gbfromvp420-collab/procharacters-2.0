@@ -1001,8 +1001,60 @@ class InnovationResponse(BaseModel):
     configured_providers: int
     soul_lane_status: str = "in_progress"
     money_lane_status: str = "in_progress"
+    live_lane_status: str = "in_progress"
     live_activate: bool = True
     schema_path: str
+
+
+class LaunchReadinessItem(BaseModel):
+    id: str
+    label: str
+    ready: bool
+
+
+class LaunchBoardResponse(BaseModel):
+    title: str
+    status: str
+    doors: str
+    host: str
+    headline_title: str
+    headline_session_id: str | None = None
+    headline_status: str
+    cam_title: str
+    cam_session_id: str | None = None
+    cam_status: str
+    launched_at: str | None = None
+    ticket_price_cents: int
+
+
+class LiveLaunchLaneResponse(BaseModel):
+    lane_id: str
+    lane_title: str
+    status: str
+    launch_live: bool
+    checks_ready: int
+    checks_total: int
+    headline_status: str
+    host: str
+
+
+class LaunchReadinessResponse(BaseModel):
+    checks: list[LaunchReadinessItem]
+    count: int
+    ready_count: int
+
+
+class GoLiveResponse(BaseModel):
+    live: bool
+    headline_session_id: str
+    cam_session_id: str
+    ticket_id: str
+    donation_id: str
+    donation_payout_percent: float
+    comment_id: str
+    launched_at: str
+    board: LaunchBoardResponse
+    message: str
 
 
 class SwarmPayoutResponse(BaseModel):

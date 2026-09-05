@@ -33,6 +33,7 @@ def test_roster_module_contains_king_grok_and_team() -> None:
     assert "LiveStage_Cam_Sub_01" in codenames
     assert "SovereignScale_Fleet_Sub_01" in codenames
     assert "CrownCompletion_Legacy_Sub_01" in codenames
+    assert "LiveLaunch_Doors_Sub_01" in codenames
     assert len(roster) >= 26
 
 
@@ -41,7 +42,7 @@ def test_leaderboard_sorted_by_award() -> None:
     awards = [member["award_lb_gold"] for member in board]
     assert awards == sorted(awards, reverse=True)
     assert board[0]["codename"] == "King Grok"
-    assert board[0]["award_lb_gold"] == 23.0
+    assert board[0]["award_lb_gold"] == 24.0
 
 
 def test_workforce_roster_api(api_client: TestClient) -> None:
@@ -85,9 +86,10 @@ def test_workforce_roster_api(api_client: TestClient) -> None:
         "Innovation_Wire_Authority",
         "Companion_Soul_Authority",
         "Characters_Revenue_Authority",
+        "Live_Launch_Authority",
     ]
     assert king["phase_earned"] == 20
-    assert king["award_lb_gold"] == 23.0
+    assert king["award_lb_gold"] == 24.0
     assert king["award_platinum"] is True
     assert king["platinum_value_usd"] == 5000.0
 
