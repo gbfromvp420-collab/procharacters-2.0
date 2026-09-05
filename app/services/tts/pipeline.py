@@ -174,5 +174,10 @@ class TTSStreamPipeline:
             session_id=session_id,
         )
 
+    async def reconfigure(self, settings: Settings) -> None:
+        await self._client.aclose()
+        self._settings = settings
+        self._client = create_tts_client(settings)
+
     async def aclose(self) -> None:
         await self._client.aclose()

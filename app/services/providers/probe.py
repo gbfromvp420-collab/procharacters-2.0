@@ -31,6 +31,16 @@ class ProviderProbeService:
         self._cache_at: float = 0.0
         self._probe_lock = asyncio.Lock()
 
+    async def reconfigure(self, settings: Settings) -> None:
+        await self._client.aclose()
+        self._settings = settings
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(PROBE_TIMEOUT_SECONDS),
+            follow_redirects=True,
+        )
+        self._cache = None
+        self._cache_at = 0.0
+
     async def aclose(self) -> None:
         await self._client.aclose()
 

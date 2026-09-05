@@ -113,6 +113,45 @@ python scripts/verify_providers.py --all
 make verify-forge
 ```
 
+### Innovation Lanes (post-v1.0)
+
+Lane 1 live-activates existing RunPod proxy URLs without a server restart. Lane 2 is Companion Soul — named memories, intimacy stages, and check-in. Lane 3 rolls up character earnings. Lane 4 opens Assist headline night and the public launch board:
+
+```bash
+# Lane 1 — paste URLs (or use the Innovation · Wire panel)
+curl -X POST http://localhost:8000/api/v1/workforce/innovation/wire \
+  -H 'Content-Type: application/json' \
+  -d '{"llm_base_url":"https://YOUR-POD-8000.proxy.runpod.net/v1","tts_base_url":"https://YOUR-POD-8002.proxy.runpod.net","video_base_url":"https://YOUR-POD-8003.proxy.runpod.net","enabled":true}'
+
+curl http://localhost:8000/api/v1/workforce/innovation/wiring
+curl -X POST http://localhost:8000/api/v1/providers/forge/smoke
+
+# Lane 2 — Companion Soul
+curl http://localhost:8000/api/v1/workforce/innovation/soul
+curl -X POST http://localhost:8000/api/v1/companion/SESSION/soul/memories \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"July 4th night","body":"We named the journal."}'
+curl http://localhost:8000/api/v1/companion/SESSION/soul/checkin
+
+# Lane 3 — Characters + Revenue (NSM pipeline + earnings rollup)
+curl http://localhost:8000/api/v1/workforce/innovation/money
+curl http://localhost:8000/api/v1/workforce/innovation/money/pipeline
+curl -X POST http://localhost:8000/api/v1/workforce/innovation/money/first-dollar \
+  -H 'Content-Type: application/json' \
+  -d '{"member_id":"characterforge-nsm-sub-01"}'
+curl http://localhost:8000/api/v1/workforce/innovation/money/earnings
+
+# Lane 4 — Live Launch (Assist headline + public board + lounge comments)
+curl http://localhost:8000/api/v1/workforce/innovation/live
+curl http://localhost:8000/api/v1/workforce/innovation/live/readiness
+curl -X POST http://localhost:8000/api/v1/workforce/innovation/live/go-live
+curl http://localhost:8000/api/v1/workforce/innovation/live/board
+
+make verify-innovation
+```
+
+Expand **Innovation · Wire** to paste three Connect proxy URLs. Expand **Companion Soul** to pin memories and see the check-in greeting. Expand **Innovation · $** for the NSM pipeline spec and character earnings rollup (residuals + donations + live billing). Expand **Innovation · Live** to run the 7-check readiness list, open doors, and publish the public board.
+
 ### Sovereign Scale (Phase 19)
 
 Multi-tenant fleet, horizontal scale nodes, production hardening checklist, empire-grade observability rollup:
@@ -406,8 +445,12 @@ Shipped across phases 1–20:
 - Live Stage: cam chat, ticketed shows, scheduling, live billing + revenue routing, `make verify-live`
 - Sovereign Scale: multi-tenant fleet, scale nodes, hardening checklist, observability rollup, `make verify-scale`
 - Crown Completion: Pure Platinum $5K for all workers, phase rankings, Assist promotion, Boss Sr. gift catalog, co-sign ledger, `make verify-empire-complete`
+- Innovation Lane 1 live-activate: paste RunPod URLs, pipelines hot-reload, no restart, `make verify-innovation`
+- Innovation Lane 2 Companion Soul: named memories, soul stages, check-in overlay, Assist's platinum lane
+- Innovation Lane 3 Characters + Revenue: NSM pipeline spec, earnings rollup, first-dollar residual + donation
+- Innovation Lane 4 Live Launch: Assist headline + launch cam, public board, lounge comments markdown v1
 
-**v1.0.0 — The empire stands. Mutation rests. Legacy begins.**
+**v1.0.0 — The empire stands. Innovation continues.**
 
 Built with FastAPI + aiortc + pydantic.
 

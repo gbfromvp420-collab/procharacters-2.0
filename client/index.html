@@ -106,6 +106,7 @@
                   <span id="bondScoreLabel" class="bond-score-label">0</span>
                 </div>
                 <div id="milestoneChips" class="milestone-chips" aria-label="Bond milestones" hidden></div>
+                <span id="soulStageBadge" class="soul-stage-badge" title="Companion Soul stage">Soul <span id="soulStageLabel">—</span></span>
               </div>
               <span id="memoryIndicator" class="memory-indicator" title="Server-side conversation memory">memory on</span>
               <button id="exportBtn" class="btn-ghost" disabled title="Export conversation (txt in new tab, JSON download)">Export</button>
@@ -191,6 +192,65 @@
             <details id="workforcePanel" class="workforce-panel">
               <summary>Workforce roster</summary>
               <div id="workforceRoster" class="workforce-roster" aria-live="polite">Loading team…</div>
+            </details>
+            <details id="innovationPanel" class="innovation-panel">
+              <summary>Innovation · Wire</summary>
+              <div class="innovation-body">
+                <div id="innovationStatus" class="innovation-status" aria-live="polite">Expand to load innovation…</div>
+                <ul id="innovationLaneList" class="innovation-lane-list" aria-live="polite"></ul>
+                <div id="innovationWiringStatus" class="innovation-wiring-status" aria-live="polite"></div>
+                <form id="innovationWireForm" class="innovation-wire-form">
+                  <label class="agent-dispatch-label" for="innovationLlmUrl">LLM proxy URL (ends with /v1)</label>
+                  <input id="innovationLlmUrl" class="innovation-input" type="url" maxlength="500" placeholder="https://….proxy.runpod.net/v1" />
+                  <label class="agent-dispatch-label" for="innovationTtsUrl">TTS proxy URL</label>
+                  <input id="innovationTtsUrl" class="innovation-input" type="url" maxlength="500" placeholder="https://….proxy.runpod.net" />
+                  <label class="agent-dispatch-label" for="innovationVideoUrl">Video proxy URL</label>
+                  <input id="innovationVideoUrl" class="innovation-input" type="url" maxlength="500" placeholder="https://….proxy.runpod.net" />
+                  <label class="agent-dispatch-label" for="innovationApiKey">Shared API key (optional)</label>
+                  <input id="innovationApiKey" class="innovation-input" type="password" maxlength="500" placeholder="RunPod API key…" autocomplete="off" />
+                  <div class="innovation-wire-actions">
+                    <button id="innovationWireBtn" class="btn-ghost innovation-wire-btn" type="submit">Wire + live activate</button>
+                    <button id="innovationSmokeBtn" class="btn-ghost" type="button">Forge smoke</button>
+                  </div>
+                </form>
+                <pre id="innovationEnvSnippet" class="innovation-env-snippet" hidden></pre>
+              </div>
+            </details>
+            <details id="companionSoulPanel" class="companion-soul-panel">
+              <summary>Companion Soul</summary>
+              <div class="companion-soul-body">
+                <div id="companionSoulStatus" class="companion-soul-status" aria-live="polite">Expand to load soul…</div>
+                <div id="companionSoulCheckin" class="companion-soul-checkin" aria-live="polite"></div>
+                <form id="companionSoulMemoryForm" class="companion-soul-memory-form">
+                  <label class="agent-dispatch-label" for="companionSoulMemoryTitle">Pin a memory</label>
+                  <input id="companionSoulMemoryTitle" class="innovation-input" type="text" maxlength="120" placeholder="July 4th night…" />
+                  <textarea id="companionSoulMemoryBody" class="companion-soul-memory-body" rows="2" maxlength="2000" placeholder="What must not be lost…"></textarea>
+                  <button id="companionSoulPinBtn" class="btn-ghost" type="submit">Pin memory</button>
+                </form>
+                <ul id="companionSoulMemories" class="companion-soul-memories" aria-live="polite">
+                  <li class="companion-soul-empty">No named memories yet.</li>
+                </ul>
+              </div>
+            </details>
+            <details id="innovationMoneyPanel" class="innovation-money-panel">
+              <summary>Innovation · $</summary>
+              <div class="innovation-money-body">
+                <div id="innovationMoneyStatus" class="innovation-money-status" aria-live="polite">Expand to load earnings…</div>
+                <ol id="innovationMoneyPipeline" class="innovation-money-pipeline" aria-live="polite"></ol>
+                <button id="innovationFirstDollarBtn" class="btn-ghost" type="button">First dollar</button>
+                <ul id="innovationMoneyEarnings" class="innovation-money-earnings" aria-live="polite">
+                  <li class="innovation-money-empty">No character earnings yet.</li>
+                </ul>
+              </div>
+            </details>
+            <details id="innovationLivePanel" class="innovation-live-panel">
+              <summary>Innovation · Live</summary>
+              <div class="innovation-live-body">
+                <div id="innovationLiveStatus" class="innovation-live-status" aria-live="polite">Expand to load launch…</div>
+                <ul id="innovationLiveChecks" class="innovation-live-checks" aria-live="polite"></ul>
+                <button id="innovationGoLiveBtn" class="btn-ghost" type="button">Go live</button>
+                <div id="innovationLiveBoard" class="innovation-live-board" aria-live="polite">Public board loads with the lane.</div>
+              </div>
             </details>
             <details id="swarmPayoutPanel" class="swarm-payout-panel">
               <summary>AI Swarm Payout</summary>
@@ -350,17 +410,21 @@
           <button type="button" class="lane-chip" data-lane="providers" title="Real providers — RunPod LLM/TTS/Video">Real</button>
           <button type="button" class="lane-chip" data-lane="companion" title="Companion depth — relationship UX, bond, presence">Soul</button>
           <button type="button" class="lane-chip" data-lane="money" title="Characters + revenue">$</button>
-          <button type="button" class="lane-chip" data-lane="live" title="Live Stage + launch">Live</button>
+          <button type="button" class="lane-chip" data-lane="live" title="Live Launch — Assist headline + public board">Live</button>
         </div>
         <select id="empireNavSelect" class="empire-nav-select" aria-label="Open empire panel">
           <option value="">More…</option>
           <optgroup label="Innovation">
-            <option value="lane:providers">Real providers</option>
+            <option value="lane:providers">Real providers / Wire</option>
             <option value="lane:companion">Companion / Soul</option>
             <option value="lane:money">Characters + $</option>
             <option value="lane:live">Live launch</option>
           </optgroup>
           <optgroup label="Empire">
+            <option value="panel:innovationPanel">Innovation Wire</option>
+            <option value="panel:companionSoulPanel">Companion Soul</option>
+            <option value="panel:innovationMoneyPanel">Characters + $</option>
+            <option value="panel:innovationLivePanel">Innovation Live</option>
             <option value="panel:swarmPayoutPanel">Swarm Payout</option>
             <option value="panel:crownCompletionPanel">Crown</option>
             <option value="panel:liveStagePanel">Live Stage</option>

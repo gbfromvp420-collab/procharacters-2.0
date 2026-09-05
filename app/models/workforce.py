@@ -902,6 +902,91 @@ class RunPodWireResponse(BaseModel):
     readiness: RunPodWiringReadinessResponse
     env_snippet: str | None = None
     message: str
+    pipelines_activated: bool = False
+    effective_providers: dict[str, str] = Field(default_factory=dict)
+
+
+class SoulStageCatalogItem(BaseModel):
+    id: str
+    label: str
+    min_bond: int
+    overlay: str
+
+
+class CompanionSoulLaneResponse(BaseModel):
+    lane_id: str
+    lane_title: str
+    status: str
+    stages: list[SoulStageCatalogItem]
+    checkin_threshold_hours: float
+    max_memories: int
+    sessions_with_memories: int
+    memories_total: int
+    assist_owner: str
+
+
+class NsmPipelineStepResponse(BaseModel):
+    id: str
+    rank: int
+    label: str
+    summary: str
+    api: str
+    status: str
+
+
+class CharacterEarningsRowResponse(BaseModel):
+    character_id: str
+    member_id: str
+    codename: str
+    display_name: str
+    status: str
+    avatar_id: str | None = None
+    residual_percent: float
+    residuals_cents: int
+    donations_cents: int
+    live_billing_cents: int
+    total_cents: int
+
+
+class CharacterEarningsListResponse(BaseModel):
+    rows: list[CharacterEarningsRowResponse]
+    count: int
+    total_cents: int
+
+
+class NsmPipelineResponse(BaseModel):
+    steps: list[NsmPipelineStepResponse]
+    count: int
+    contact_email: str
+    title: str = "NSM character pipeline"
+
+
+class CharacterRevenueLaneResponse(BaseModel):
+    lane_id: str
+    lane_title: str
+    status: str
+    contact_email: str
+    pipeline_steps: int
+    pipeline_live: int
+    characters_total: int
+    earnings_total_cents: int
+    first_dollar_member_id: str
+
+
+class FirstDollarRequest(BaseModel):
+    member_id: str | None = Field(default=None, max_length=80)
+
+
+class FirstDollarResponse(BaseModel):
+    character_id: str
+    member_id: str
+    display_name: str
+    residual_id: str
+    ledger_id: str
+    amount_cents: int
+    donation_payout_percent: float
+    earnings: CharacterEarningsRowResponse | None = None
+    message: str
 
 
 class InnovationResponse(BaseModel):
@@ -914,7 +999,62 @@ class InnovationResponse(BaseModel):
     lanes_total: int
     real_providers_ready: bool
     configured_providers: int
+    soul_lane_status: str = "in_progress"
+    money_lane_status: str = "in_progress"
+    live_lane_status: str = "in_progress"
+    live_activate: bool = True
     schema_path: str
+
+
+class LaunchReadinessItem(BaseModel):
+    id: str
+    label: str
+    ready: bool
+
+
+class LaunchBoardResponse(BaseModel):
+    title: str
+    status: str
+    doors: str
+    host: str
+    headline_title: str
+    headline_session_id: str | None = None
+    headline_status: str
+    cam_title: str
+    cam_session_id: str | None = None
+    cam_status: str
+    launched_at: str | None = None
+    ticket_price_cents: int
+
+
+class LiveLaunchLaneResponse(BaseModel):
+    lane_id: str
+    lane_title: str
+    status: str
+    launch_live: bool
+    checks_ready: int
+    checks_total: int
+    headline_status: str
+    host: str
+
+
+class LaunchReadinessResponse(BaseModel):
+    checks: list[LaunchReadinessItem]
+    count: int
+    ready_count: int
+
+
+class GoLiveResponse(BaseModel):
+    live: bool
+    headline_session_id: str
+    cam_session_id: str
+    ticket_id: str
+    donation_id: str
+    donation_payout_percent: float
+    comment_id: str
+    launched_at: str
+    board: LaunchBoardResponse
+    message: str
 
 
 class SwarmPayoutResponse(BaseModel):

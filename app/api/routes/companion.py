@@ -17,6 +17,11 @@ from app.models.companion import (
     ImportSessionRequest,
     ImportSessionResponse,
     PresenceConfigResponse,
+    SoulCheckinResponse,
+    SoulMemoryItem,
+    SoulMemoryListResponse,
+    SoulMemoryPinRequest,
+    SoulSnapshotResponse,
 )
 from app.services.companion.milestones import BOND_MILESTONES
 from app.services.companion.presence import get_presence_config
@@ -155,6 +160,60 @@ async def update_companion_config(
         relationship_mode=payload.relationship_mode,
     )
     return CompanionConfig(**cfg)
+
+
+@router.get(
+    "/{session_id}/soul",
+    response_model=SoulSnapshotResponse,
+    summary="Companion Soul snapshot — stage, memories, check-in",
+)
+async def get_companion_soul(request: Request, session_id: str) -> SoulSnapshotResponse:
+    snap = _store(request).get_soul_snapshot(session_id)
+    return SoulSnapshotResponse(**snap)  # type: ignore[arg-type]
+
+
+@router.get(
+    "/{session_id}/soul/checkin",
+    response_model=SoulCheckinResponse,
+    summary="Companion Soul check-in greeting",
+)
+async def get_companion_soul_checkin(request: Request, session_id: str) -> SoulCheckinResponse:
+    return SoulCheckinResponse(**_store(request).get_soul_checkin(session_id))  # type: ignore[arg-type]
+
+
+@router.get(
+    "/{session_id}/soul/memories",
+    response_model=SoulMemoryListResponse,
+    summary="List pinned Companion Soul memories",
+)
+async def list_companion_soul_memories(
+    request: Request, session_id: str
+) -> SoulMemoryListResponse:
+    memories = _store(request).list_soul_memories(session_id)
+    return SoulMemoryListResponse(
+        memories=[SoulMemoryItem(**item) for item in memories],
+        count=len(memories),
+        session_id=session_id,
+    )
+
+
+@router.post(
+    "/{session_id}/soul/memories",
+    response_model=SoulMemoryItem,
+    summary="Pin a named Companion Soul memory",
+)
+async def pin_companion_soul_memory(
+    request: Request,
+    session_id: str,
+    payload: SoulMemoryPinRequest,
+) -> SoulMemoryItem:
+    memory = _store(request).pin_soul_memory(
+        session_id,
+        title=payload.title,
+        body=payload.body,
+        source=payload.source,
+    )
+    return SoulMemoryItem(**memory)
 
 
 @router.get(

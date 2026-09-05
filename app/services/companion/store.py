@@ -16,6 +16,14 @@ from app.services.companion.milestones import (
     get_milestones_for_ids,
     get_unlocked_milestones,
 )
+from app.services.companion.soul import (
+    append_memory,
+    build_checkin,
+    build_soul_overlay,
+    new_memory,
+    normalize_memories,
+    resolve_soul_stage,
+)
 from app.services.companion.persistence import CompanionPersistence
 from app.services.companion.summarizer import summarize_turns
 from app.services.observability.metrics import MetricsCollector
@@ -51,6 +59,7 @@ class _SessionState:
     bond_score: int = 0
     milestones_unlocked: list[str] = field(default_factory=list)
     memory_summary: str = ""
+    soul_memories: list[dict[str, str]] = field(default_factory=list)
     created_at: str = ""
     last_active_at: str = ""
 
@@ -135,6 +144,7 @@ class SessionCompanionStore:
                 bond_score=bond_score,
                 milestones_unlocked=milestones_unlocked,
                 memory_summary=memory_summary,
+                soul_memories=normalize_memories(data.get("soul_memories", [])),
                 created_at=created_at,
                 last_active_at=data.get("last_active_at") or created_at,
             )
@@ -149,6 +159,7 @@ class SessionCompanionStore:
                 "bond_score": state.bond_score,
                 "milestones_unlocked": list(state.milestones_unlocked),
                 "memory_summary": state.memory_summary,
+                "soul_memories": list(state.soul_memories),
                 "messages": [message.model_dump() for message in state.messages],
                 "created_at": state.created_at,
                 "last_active_at": state.last_active_at,
@@ -238,6 +249,7 @@ class SessionCompanionStore:
         old_score = state.bond_score
         state.bond_score = max(0, min(100, state.bond_score + delta))
         self._unlock_milestone_if_crossed(state, old_score)
+        self._maybe_record_soul_stage(state, old_score, "Bond deepened.")
         self._persist()
         if self._metrics is not None:
             self._metrics.increment_bond_increments()
@@ -250,6 +262,7 @@ class SessionCompanionStore:
             if memory_preview
             else state.memory_summary
         )
+        stage = resolve_soul_stage(state.bond_score)
         return {
             "avatar_id": state.avatar_id,
             "voice": state.voice,
@@ -260,6 +273,9 @@ class SessionCompanionStore:
             "turn_count": len(state.messages) // 2,
             "created_at": state.created_at,
             "last_active_at": state.last_active_at,
+            "soul_stage": stage.id,
+            "soul_stage_label": stage.label,
+            "soul_memory_count": len(state.soul_memories),
         }
 
     def set_config(
@@ -301,6 +317,7 @@ class SessionCompanionStore:
         old_score = state.bond_score
         state.bond_score = max(0, min(100, state.bond_score + bond_delta))
         milestone = self._unlock_milestone_if_crossed(state, old_score)
+        self._maybe_record_soul_stage(state, old_score, user_msg.content)
         self._maybe_summarize(state)
         state.last_active_at = _utc_now_iso()
         self._persist()
@@ -383,6 +400,16 @@ class SessionCompanionStore:
                 system_content = f"{system_content}\n\n{milestone_block}"
             else:
                 system_content = milestone_block
+        soul_overlay = build_soul_overlay(
+            bond_score=state.bond_score,
+            memories=state.soul_memories,
+            last_active_at=state.last_active_at,
+        )
+        if soul_overlay:
+            if system_content:
+                system_content = f"{system_content}\n\n{soul_overlay}"
+            else:
+                system_content = soul_overlay
         messages: list[ChatMessage] = [
             ChatMessage(role="system", content=system_content),
         ]
@@ -463,6 +490,7 @@ class SessionCompanionStore:
             created_at = config.get("created_at") or data.get("created_at")
             last_active_at = config.get("last_active_at") or data.get("last_active_at")
             milestones_raw = data.get("milestones_unlocked", config.get("milestones_unlocked"))
+            soul_memories_raw = data.get("soul_memories", config.get("soul_memories", []))
         else:
             avatar_id = data.get("avatar_id", self._default_avatar_id())
             voice = data.get("voice", self._default_voice())
@@ -473,6 +501,7 @@ class SessionCompanionStore:
             created_at = data.get("created_at")
             last_active_at = data.get("last_active_at")
             milestones_raw = data.get("milestones_unlocked")
+            soul_memories_raw = data.get("soul_memories", [])
 
         if not isinstance(memory_summary, str):
             memory_summary = ""
@@ -493,6 +522,7 @@ class SessionCompanionStore:
             bond_score=bond_score,
             milestones_unlocked=milestones_unlocked,
             memory_summary=memory_summary,
+            soul_memories=normalize_memories(soul_memories_raw),
             created_at=created_at,
             last_active_at=last_active_at,
         )
@@ -508,6 +538,7 @@ class SessionCompanionStore:
             bond_score=source.bond_score,
             milestones_unlocked=list(source.milestones_unlocked),
             memory_summary=source.memory_summary,
+            soul_memories=list(source.soul_memories),
             created_at=now,
             last_active_at=now,
         )
@@ -524,6 +555,7 @@ class SessionCompanionStore:
             "bond_score": state.bond_score,
             "milestones_unlocked": list(state.milestones_unlocked),
             "memory_summary": state.memory_summary,
+            "soul_memories": list(state.soul_memories),
             "messages": [message.model_dump() for message in state.messages],
             "turn_count": len(state.messages) // 2,
             "created_at": state.created_at,
@@ -548,6 +580,88 @@ class SessionCompanionStore:
         if self._metrics is not None:
             self._metrics.increment_sessions_cloned()
         return new_id
+
+    def pin_soul_memory(
+        self,
+        session_id: str,
+        *,
+        title: str,
+        body: str,
+        source: str = "pinned",
+    ) -> dict[str, str]:
+        state = self.get_or_create(session_id)
+        memory = new_memory(title=title, body=body, source=source)
+        state.soul_memories = append_memory(state.soul_memories, memory)
+        state.last_active_at = _utc_now_iso()
+        self._persist()
+        return memory
+
+    def list_soul_memories(self, session_id: str) -> list[dict[str, str]]:
+        return list(self.get_or_create(session_id).soul_memories)
+
+    def get_soul_snapshot(self, session_id: str) -> dict[str, object]:
+        state = self.get_or_create(session_id)
+        stage = resolve_soul_stage(state.bond_score)
+        checkin = build_checkin(
+            bond_score=state.bond_score,
+            memories=state.soul_memories,
+            last_active_at=state.last_active_at,
+            relationship_mode=state.relationship_mode,
+        )
+        return {
+            "session_id": session_id,
+            "soul_stage": stage.id,
+            "soul_stage_label": stage.label,
+            "bond_score": state.bond_score,
+            "relationship_mode": state.relationship_mode,
+            "memory_count": len(state.soul_memories),
+            "memories": list(state.soul_memories),
+            "checkin": checkin,
+            "overlay": build_soul_overlay(
+                bond_score=state.bond_score,
+                memories=state.soul_memories,
+                last_active_at=state.last_active_at,
+            ),
+        }
+
+    def get_soul_checkin(self, session_id: str) -> dict[str, object]:
+        state = self.get_or_create(session_id)
+        return build_checkin(
+            bond_score=state.bond_score,
+            memories=state.soul_memories,
+            last_active_at=state.last_active_at,
+            relationship_mode=state.relationship_mode,
+        )
+
+    def soul_memory_stats(self) -> dict[str, int]:
+        sessions_with_memories = 0
+        memories_total = 0
+        for state in self._sessions.values():
+            count = len(state.soul_memories)
+            memories_total += count
+            if count:
+                sessions_with_memories += 1
+        return {
+            "sessions_with_memories": sessions_with_memories,
+            "memories_total": memories_total,
+        }
+
+    def _maybe_record_soul_stage(
+        self,
+        state: _SessionState,
+        old_score: int,
+        note: str,
+    ) -> None:
+        old_stage = resolve_soul_stage(old_score)
+        new_stage = resolve_soul_stage(state.bond_score)
+        if old_stage.id == new_stage.id:
+            return
+        memory = new_memory(
+            title=f"Reached {new_stage.label}",
+            body=(note or "").strip()[:2000] or f"Soul stage moved to {new_stage.label}.",
+            source="stage",
+        )
+        state.soul_memories = append_memory(state.soul_memories, memory)
 
     def import_bundle(self, data: dict) -> str:
         """Import a session bundle; optional session_id used when not colliding."""

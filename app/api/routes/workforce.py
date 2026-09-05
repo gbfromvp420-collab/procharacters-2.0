@@ -63,10 +63,24 @@ from app.models.workforce import (
     ResidualEntryResponse,
     EnvChecklistItemResponse,
     HardeningCheckResponse,
+    CharacterEarningsListResponse,
+    CharacterEarningsRowResponse,
+    CharacterRevenueLaneResponse,
+    CompanionSoulLaneResponse,
+    FirstDollarRequest,
+    FirstDollarResponse,
+    GoLiveResponse,
+    LaunchBoardResponse,
+    LaunchReadinessItem,
+    LaunchReadinessResponse,
+    LiveLaunchLaneResponse,
     InnovationLaneListResponse,
+    NsmPipelineResponse,
+    NsmPipelineStepResponse,
     InnovationLaneResponse,
     InnovationResponse,
     RealProviderReadinessItem,
+    SoulStageCatalogItem,
     RealProviderReadinessResponse,
     RunPodEffectiveProviderResponse,
     RunPodWireRequest,
@@ -1331,7 +1345,11 @@ async def innovation_wire_runpod(
     body: RunPodWireRequest,
 ) -> RunPodWireResponse:
     from app.core.config import get_settings
-    from app.core.runpod_wiring import build_wiring_report, update_wiring_urls, wiring_readiness
+    from app.core.runpod_wiring import (
+        apply_runpod_wiring,
+        build_wiring_report,
+        update_wiring_urls,
+    )
 
     settings = request.app.state.settings
     update_wiring_urls(
@@ -1348,13 +1366,24 @@ async def innovation_wire_runpod(
     cache_clear = getattr(get_settings, "cache_clear", None)
     if callable(cache_clear):
         cache_clear()
-    fresh = get_settings()
+    fresh = apply_runpod_wiring(settings)
     request.app.state.settings = fresh
     report = build_wiring_report(fresh)
     readiness = report["readiness"]
     wired = bool(readiness.get("wired"))
+    pipelines_activated = False
+    effective_providers: dict[str, str] = {}
     if wired:
-        message = "RunPod wired — real providers active. Run POST /api/v1/providers/forge/smoke"
+        from app.services.providers.activate import activate_provider_stack
+
+        stack = await activate_provider_stack(request.app, fresh)
+        pipelines_activated = bool(stack.get("activated"))
+        effective_providers = {
+            "llm": str(stack.get("llm", "")),
+            "tts": str(stack.get("tts", "")),
+            "video": str(stack.get("video", "")),
+        }
+        message = "RunPod wired and pipelines live — no restart. POST /api/v1/providers/forge/smoke"
     elif readiness.get("all_ready"):
         message = "URLs saved — set enabled:true or POST again with enabled=true"
     else:
@@ -1371,6 +1400,183 @@ async def innovation_wire_runpod(
         readiness=RunPodWiringReadinessResponse(**readiness),
         env_snippet=report.get("env_snippet"),
         message=message,
+        pipelines_activated=pipelines_activated,
+        effective_providers=effective_providers,
+    )
+
+
+@router.get(
+    "/innovation/soul",
+    response_model=CompanionSoulLaneResponse,
+    summary="Lane 2 — Companion Soul stages, memories, Assist ownership",
+)
+async def innovation_companion_soul(request: Request) -> CompanionSoulLaneResponse:
+    from app.services.companion.soul import lane_snapshot
+
+    stats = request.app.state.companion_store.soul_memory_stats()
+    raw = lane_snapshot(**stats)
+    return CompanionSoulLaneResponse(
+        lane_id=raw["lane_id"],
+        lane_title=raw["lane_title"],
+        status=raw["status"],
+        stages=[SoulStageCatalogItem(**item) for item in raw["stages"]],
+        checkin_threshold_hours=raw["checkin_threshold_hours"],
+        max_memories=raw["max_memories"],
+        sessions_with_memories=raw["sessions_with_memories"],
+        memories_total=raw["memories_total"],
+        assist_owner=raw["assist_owner"],
+    )
+
+
+@router.get(
+    "/innovation/money",
+    response_model=CharacterRevenueLaneResponse,
+    summary="Lane 3 — Characters + Revenue status and earnings totals",
+)
+async def innovation_money_status(request: Request) -> CharacterRevenueLaneResponse:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=request.app.state.character_forge,
+        revenue=request.app.state.revenue_forge,
+        live=request.app.state.live_stage,
+    )
+    return CharacterRevenueLaneResponse(**lane.snapshot())
+
+
+@router.get(
+    "/innovation/money/pipeline",
+    response_model=NsmPipelineResponse,
+    summary="NSM character pipeline spec — opt-in through earnings rollup",
+)
+async def innovation_money_pipeline(request: Request) -> NsmPipelineResponse:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=request.app.state.character_forge,
+        revenue=request.app.state.revenue_forge,
+        live=request.app.state.live_stage,
+    )
+    steps = [NsmPipelineStepResponse(**item) for item in lane.pipeline_spec()]
+    return NsmPipelineResponse(
+        steps=steps,
+        count=len(steps),
+        contact_email="gary@procharacters.cloud",
+    )
+
+
+@router.get(
+    "/innovation/money/earnings",
+    response_model=CharacterEarningsListResponse,
+    summary="Character earnings rollup — residuals + donations + live billing",
+)
+async def innovation_money_earnings(request: Request) -> CharacterEarningsListResponse:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=request.app.state.character_forge,
+        revenue=request.app.state.revenue_forge,
+        live=request.app.state.live_stage,
+    )
+    rows = [CharacterEarningsRowResponse(**item) for item in lane.earnings_rows()]
+    return CharacterEarningsListResponse(
+        rows=rows,
+        count=len(rows),
+        total_cents=sum(row.total_cents for row in rows),
+    )
+
+
+@router.post(
+    "/innovation/money/first-dollar",
+    response_model=FirstDollarResponse,
+    summary="Lane 3 first dollar — onboard if needed, residual + routed donation",
+)
+async def innovation_money_first_dollar(
+    request: Request,
+    body: FirstDollarRequest,
+) -> FirstDollarResponse:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=request.app.state.character_forge,
+        revenue=request.app.state.revenue_forge,
+        live=request.app.state.live_stage,
+    )
+    raw = lane.first_dollar(member_id=body.member_id)
+    earnings = raw.get("earnings")
+    return FirstDollarResponse(
+        character_id=raw["character_id"],
+        member_id=raw["member_id"],
+        display_name=raw["display_name"],
+        residual_id=raw["residual_id"],
+        ledger_id=raw["ledger_id"],
+        amount_cents=raw["amount_cents"],
+        donation_payout_percent=raw["donation_payout_percent"],
+        earnings=CharacterEarningsRowResponse(**earnings) if isinstance(earnings, dict) else None,
+        message=raw["message"],
+    )
+
+
+def _live_launch_lane(request: Request):
+    from app.services.workforce.live_launch import LiveLaunchLane
+
+    return LiveLaunchLane(
+        live=request.app.state.live_stage,
+        lounge=request.app.state.agent_lounge,
+        launch_path=request.app.state.settings.live_launch_path,
+    )
+
+
+@router.get(
+    "/innovation/live",
+    response_model=LiveLaunchLaneResponse,
+    summary="Lane 4 — Live Launch status",
+)
+async def innovation_live_status(request: Request) -> LiveLaunchLaneResponse:
+    return LiveLaunchLaneResponse(**_live_launch_lane(request).snapshot())
+
+
+@router.get(
+    "/innovation/live/readiness",
+    response_model=LaunchReadinessResponse,
+    summary="Live Launch readiness checklist",
+)
+async def innovation_live_readiness(request: Request) -> LaunchReadinessResponse:
+    checks = [LaunchReadinessItem(**item) for item in _live_launch_lane(request).readiness()]
+    return LaunchReadinessResponse(
+        checks=checks,
+        count=len(checks),
+        ready_count=sum(1 for item in checks if item.ready),
+    )
+
+
+@router.get(
+    "/innovation/live/board",
+    response_model=LaunchBoardResponse,
+    summary="Public Live Launch board",
+)
+async def innovation_live_board(request: Request) -> LaunchBoardResponse:
+    return LaunchBoardResponse(**_live_launch_lane(request).public_board())
+
+
+@router.post(
+    "/innovation/live/go-live",
+    response_model=GoLiveResponse,
+    summary="Open doors — Assist headline + launch cam + public board",
+)
+async def innovation_live_go_live(request: Request) -> GoLiveResponse:
+    raw = _live_launch_lane(request).go_live()
+    return GoLiveResponse(
+        live=raw["live"],
+        headline_session_id=raw["headline_session_id"],
+        cam_session_id=raw["cam_session_id"],
+        ticket_id=raw["ticket_id"],
+        donation_id=raw["donation_id"],
+        donation_payout_percent=raw["donation_payout_percent"],
+        comment_id=raw["comment_id"],
+        launched_at=raw["launched_at"],
+        board=LaunchBoardResponse(**raw["board"]),
+        message=raw["message"],
     )
 
 

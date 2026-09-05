@@ -437,6 +437,19 @@ button:not(:disabled):hover {
   min-width: 92px;
 }
 
+.soul-stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(199, 125, 255, 0.1);
+  border: 1px solid rgba(199, 125, 255, 0.28);
+  color: #e3c6ff;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
 .bond-meter.bond-meter-pulse {
   animation: bond-meter-pulse 0.9s ease-out 2;
   border-color: rgba(255, 215, 120, 0.55);
@@ -944,6 +957,212 @@ body.has-lanes-dock .toast {
 
 .workforce-panel summary:hover {
   opacity: 0.85;
+}
+
+.innovation-panel,
+.companion-soul-panel {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.innovation-panel summary,
+.companion-soul-panel summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.innovation-panel summary {
+  color: #8ec5ff;
+}
+
+.companion-soul-panel summary {
+  color: #d4a6ff;
+}
+
+.innovation-panel summary:hover,
+.companion-soul-panel summary:hover {
+  opacity: 0.85;
+}
+
+.innovation-body,
+.companion-soul-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.innovation-status,
+.companion-soul-status,
+.innovation-wiring-status,
+.companion-soul-checkin {
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.companion-soul-checkin {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(199, 125, 255, 0.1);
+  border: 1px solid rgba(199, 125, 255, 0.24);
+  color: #edd8ff;
+}
+
+.innovation-lane-list,
+.companion-soul-memories {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.66rem;
+}
+
+.innovation-wire-form,
+.companion-soul-memory-form {
+  display: grid;
+  gap: 6px;
+}
+
+.innovation-input,
+.companion-soul-memory-body {
+  width: 100%;
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.innovation-wire-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.innovation-env-snippet {
+  margin: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(142, 197, 255, 0.08);
+  border: 1px solid rgba(142, 197, 255, 0.2);
+  font-size: 0.6rem;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  max-height: 140px;
+}
+
+.companion-soul-empty {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.innovation-money-panel {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.innovation-money-panel summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  color: #7dd3a8;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.innovation-money-panel summary:hover {
+  opacity: 0.85;
+}
+
+.innovation-money-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.innovation-money-status {
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.innovation-money-pipeline,
+.innovation-money-earnings {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 0.66rem;
+}
+
+.innovation-money-earnings {
+  padding-left: 0;
+  list-style: none;
+}
+
+.innovation-money-empty {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.innovation-live-panel {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.innovation-live-panel summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  color: #f0b429;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.innovation-live-panel summary:hover {
+  opacity: 0.85;
+}
+
+.innovation-live-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.innovation-live-status,
+.innovation-live-board {
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.innovation-live-checks {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.66rem;
+}
+
+.innovation-live-check-ready {
+  color: #7dd3a8;
+}
+
+.innovation-live-check-wait {
+  color: var(--muted);
+}
+
+.innovation-live-board {
+  padding: 8px;
+  border: 1px solid rgba(240, 180, 41, 0.28);
+  border-radius: 8px;
 }
 
 .workforce-roster {
@@ -2044,6 +2263,10 @@ body.has-lanes-dock .toast {
 
   .kgc-panel summary,
   .workforce-panel summary,
+  .innovation-panel summary,
+  .companion-soul-panel summary,
+  .innovation-money-panel summary,
+  .innovation-live-panel summary,
   .swarm-payout-panel summary,
   .crown-completion-panel summary,
   .sovereign-scale-panel summary,

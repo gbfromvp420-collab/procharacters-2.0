@@ -142,5 +142,10 @@ class VideoSyncPipeline:
 
         yield VideoSyncErrorEvent(message="Speak stream ended without a completion event.")
 
+    async def reconfigure(self, settings: Settings) -> None:
+        await self._client.aclose()
+        self._settings = settings
+        self._client = create_musetalk_client(settings)
+
     async def aclose(self) -> None:
         await self._client.aclose()

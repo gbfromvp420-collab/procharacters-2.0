@@ -57,6 +57,63 @@ async def _exec_crown_completion(prompt: str, ctx: WorkforceContext) -> str:
     )
 
 
+async def _exec_innovation_wire(prompt: str, ctx: WorkforceContext) -> str:
+    from app.core.runpod_wiring import build_wiring_report
+
+    report = build_wiring_report(ctx.settings)
+    readiness = report.get("readiness", {})
+    return (
+        f"Innovation wire — wired={readiness.get('wired')} "
+        f"ready={readiness.get('all_ready')} "
+        f"llm={readiness.get('llm_ready')} tts={readiness.get('tts_ready')} "
+        f"video={readiness.get('video_ready')}. "
+        f"Note: {prompt[:200]}"
+    )
+
+
+async def _exec_companion_soul(prompt: str, ctx: WorkforceContext) -> str:
+    stats = ctx.companion_store.soul_memory_stats()
+    return (
+        f"Companion soul — memories={stats['memories_total']} "
+        f"sessions={stats['sessions_with_memories']}. "
+        f"Note: {prompt[:220]}"
+    )
+
+
+async def _exec_character_revenue(prompt: str, ctx: WorkforceContext) -> str:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=ctx.character_forge,
+        revenue=ctx.revenue_forge,
+        live=ctx.live_stage,
+    )
+    snap = lane.snapshot()
+    return (
+        f"Lane 3 $ — characters={snap['characters_total']} "
+        f"earnings_cents={snap['earnings_total_cents']} "
+        f"pipeline={snap['pipeline_live']}/{snap['pipeline_steps']}. "
+        f"Note: {prompt[:200]}"
+    )
+
+
+async def _exec_live_launch(prompt: str, ctx: WorkforceContext) -> str:
+    from app.services.workforce.live_launch import LiveLaunchLane
+
+    lane = LiveLaunchLane(
+        live=ctx.live_stage,
+        lounge=ctx.agent_lounge,
+        launch_path=ctx.settings.live_launch_path,
+    )
+    snap = lane.snapshot()
+    return (
+        f"Lane 4 Live — launch={snap['launch_live']} "
+        f"checks={snap['checks_ready']}/{snap['checks_total']} "
+        f"headline={snap['headline_status']}. "
+        f"Note: {prompt[:200]}"
+    )
+
+
 async def _exec_crown_soul_slot(prompt: str, ctx: WorkforceContext) -> str:
     promo = ctx.crown_completion.get_promotion()
     return (
@@ -234,6 +291,14 @@ _SKILL_EXECUTORS: dict[str, SkillExecutor] = {
     "Crown_Legacy_Archive": _exec_crown_completion,
     "Crown_Completion_Authority": _exec_crown_completion,
     "Crown_Soul_Slot": _exec_crown_soul_slot,
+    "Innovation_Wire_Authority": _exec_innovation_wire,
+    "RunPod_LiveActivate_NoRestart": _exec_innovation_wire,
+    "Companion_Soul_Authority": _exec_companion_soul,
+    "SoulMemory_Checkin_Stages": _exec_companion_soul,
+    "Characters_Revenue_Authority": _exec_character_revenue,
+    "NSM_Pipeline_EarningsRollup": _exec_character_revenue,
+    "Live_Launch_Authority": _exec_live_launch,
+    "LiveLaunch_Headline_PublicBoard": _exec_live_launch,
 }
 
 

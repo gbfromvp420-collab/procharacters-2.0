@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Innovation Lane 1 verification: pytest + innovation API smoke."""
+"""Innovation Lanes 1–4 verification: wire, soul, character revenue, live launch."""
 
 from __future__ import annotations
 
@@ -64,11 +64,77 @@ def _probe_innovation() -> int:
             return 1
         w = wiring.json().get("readiness", {})
         print(f"  wiring wired={w.get('wired')} ready={w.get('all_ready')}")
+
+        soul = client.get(f"{BASE}/workforce/innovation/soul")
+        if soul.status_code != 200:
+            print(f"/workforce/innovation/soul failed: {soul.status_code}")
+            return 1
+        soul_body = soul.json()
+        if soul_body.get("lane_id") != "companion_soul" or len(soul_body.get("stages", [])) != 5:
+            print("Expected companion soul lane with 5 stages")
+            return 1
+        print(f"  soul stages={len(soul_body.get('stages', []))} owner={soul_body.get('assist_owner')}")
+
+        pin = client.post(
+            f"{BASE}/companion/innovation-verify/soul/memories",
+            json={"title": "Verify held", "body": "Lane 2 smoke"},
+        )
+        if pin.status_code != 200:
+            print(f"soul pin failed: {pin.status_code}")
+            return 1
+        checkin = client.get(f"{BASE}/companion/innovation-verify/soul/checkin")
+        if checkin.status_code != 200 or not checkin.json().get("greeting"):
+            print("soul checkin failed")
+            return 1
+        print(f"  soul checkin={checkin.json().get('soul_stage_label')}")
+
+        money = client.get(f"{BASE}/workforce/innovation/money")
+        if money.status_code != 200 or money.json().get("lane_id") != "characters_revenue":
+            print("Expected characters_revenue lane")
+            return 1
+        pipeline = client.get(f"{BASE}/workforce/innovation/money/pipeline")
+        if pipeline.status_code != 200 or pipeline.json().get("count") != 8:
+            print("Expected 8 NSM pipeline steps")
+            return 1
+        first = client.post(
+            f"{BASE}/workforce/innovation/money/first-dollar",
+            json={"member_id": "characterforge-nsm-sub-01"},
+        )
+        if first.status_code != 200:
+            print(f"first-dollar failed: {first.status_code}")
+            return 1
+        print(
+            f"  money pipeline={pipeline.json().get('count')} "
+            f"first_dollar={first.json().get('amount_cents')}c"
+        )
+
+        print("=== Innovation Lane 4 (Live Launch) ===")
+        live = client.get(f"{BASE}/workforce/innovation/live")
+        if live.status_code != 200 or live.json().get("lane_id") != "live_launch":
+            print("Expected live_launch lane")
+            return 1
+        readiness = client.get(f"{BASE}/workforce/innovation/live/readiness")
+        if readiness.status_code != 200 or readiness.json().get("count") != 7:
+            print("Expected 7 live readiness checks")
+            return 1
+        go = client.post(f"{BASE}/workforce/innovation/live/go-live")
+        if go.status_code != 200 or not go.json().get("live"):
+            print(f"go-live failed: {go.status_code}")
+            return 1
+        board = client.get(f"{BASE}/workforce/innovation/live/board")
+        if board.status_code != 200 or board.json().get("status") != "live":
+            print("Expected public board status=live")
+            return 1
+        print(
+            f"  live checks={readiness.json().get('count')} "
+            f"headline={board.json().get('headline_status')} "
+            f"board={board.json().get('status')}"
+        )
         return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run Innovation Lane 1 verification")
+    parser = argparse.ArgumentParser(description="Run Innovation Lanes 1–4 verification")
     parser.add_argument("--start-server", action="store_true")
     parser.add_argument("--skip-probes", action="store_true")
     args = parser.parse_args()
@@ -77,7 +143,7 @@ def main() -> int:
         return 1
 
     if args.skip_probes:
-        print("INNOVATION LANE 1 VERIFY OK (pytest only)")
+        print("INNOVATION LANES 1–4 VERIFY OK (pytest only)")
         return 0
 
     server_proc: subprocess.Popen | None = None
@@ -113,7 +179,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    print("INNOVATION LANE 1 VERIFY OK")
+    print("INNOVATION LANES 1–4 VERIFY OK")
     return 0
 
 

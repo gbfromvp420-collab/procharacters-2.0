@@ -75,5 +75,10 @@ class LLMStreamPipeline:
             token_count=token_index,
         )
 
+    async def reconfigure(self, settings: Settings) -> None:
+        await self._client.aclose()
+        self._settings = settings
+        self._client = create_llm_client(settings)
+
     async def aclose(self) -> None:
         await self._client.aclose()

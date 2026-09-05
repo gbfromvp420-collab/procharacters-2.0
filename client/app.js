@@ -171,6 +171,38 @@ const els = {
   sovereignScaleTenants: document.getElementById("sovereignScaleTenants"),
   sovereignScaleNodes: document.getElementById("sovereignScaleNodes"),
   sovereignScaleObservability: document.getElementById("sovereignScaleObservability"),
+  innovationPanel: document.getElementById("innovationPanel"),
+  innovationStatus: document.getElementById("innovationStatus"),
+  innovationLaneList: document.getElementById("innovationLaneList"),
+  innovationWiringStatus: document.getElementById("innovationWiringStatus"),
+  innovationWireForm: document.getElementById("innovationWireForm"),
+  innovationLlmUrl: document.getElementById("innovationLlmUrl"),
+  innovationTtsUrl: document.getElementById("innovationTtsUrl"),
+  innovationVideoUrl: document.getElementById("innovationVideoUrl"),
+  innovationApiKey: document.getElementById("innovationApiKey"),
+  innovationWireBtn: document.getElementById("innovationWireBtn"),
+  innovationSmokeBtn: document.getElementById("innovationSmokeBtn"),
+  innovationEnvSnippet: document.getElementById("innovationEnvSnippet"),
+  companionSoulPanel: document.getElementById("companionSoulPanel"),
+  companionSoulStatus: document.getElementById("companionSoulStatus"),
+  companionSoulCheckin: document.getElementById("companionSoulCheckin"),
+  companionSoulMemoryForm: document.getElementById("companionSoulMemoryForm"),
+  companionSoulMemoryTitle: document.getElementById("companionSoulMemoryTitle"),
+  companionSoulMemoryBody: document.getElementById("companionSoulMemoryBody"),
+  companionSoulPinBtn: document.getElementById("companionSoulPinBtn"),
+  companionSoulMemories: document.getElementById("companionSoulMemories"),
+  innovationMoneyPanel: document.getElementById("innovationMoneyPanel"),
+  innovationMoneyStatus: document.getElementById("innovationMoneyStatus"),
+  innovationMoneyPipeline: document.getElementById("innovationMoneyPipeline"),
+  innovationFirstDollarBtn: document.getElementById("innovationFirstDollarBtn"),
+  innovationMoneyEarnings: document.getElementById("innovationMoneyEarnings"),
+  innovationLivePanel: document.getElementById("innovationLivePanel"),
+  innovationLiveStatus: document.getElementById("innovationLiveStatus"),
+  innovationLiveChecks: document.getElementById("innovationLiveChecks"),
+  innovationGoLiveBtn: document.getElementById("innovationGoLiveBtn"),
+  innovationLiveBoard: document.getElementById("innovationLiveBoard"),
+  soulStageBadge: document.getElementById("soulStageBadge"),
+  soulStageLabel: document.getElementById("soulStageLabel"),
   innovationLanesDock: document.getElementById("innovationLanesDock"),
   empireNavSelect: document.getElementById("empireNavSelect"),
   kgcPanel: document.getElementById("kgcPanel"),
@@ -603,6 +635,10 @@ async function refreshBondScore() {
 }
 
 const LANE_PANEL_LOADERS = {
+  innovationPanel: () => loadInnovationPanel({ quiet: true }).catch(() => {}),
+  companionSoulPanel: () => loadCompanionSoulPanel({ quiet: true }).catch(() => {}),
+  innovationMoneyPanel: () => loadInnovationMoneyPanel({ quiet: true }).catch(() => {}),
+  innovationLivePanel: () => loadInnovationLivePanel({ quiet: true }).catch(() => {}),
   swarmPayoutPanel: () => startSwarmPayoutPolling(),
   crownCompletionPanel: () => startCrownCompletionPolling(),
   sovereignScalePanel: () => startSovereignScalePolling(),
@@ -641,23 +677,22 @@ function activateInnovationLane(lane, { quiet = false } = {}) {
   });
 
   const messages = {
-    providers: "Lane: Real providers — header probes + Agent Theater dispatch",
-    companion: "Lane: Companion / Soul — avatars, modes, bond, presence",
-    money: "Lane: Characters + Revenue — NSM forge and ledger",
-    live: "Lane: Live launch — ticketed shows and crown headline",
+    providers: "Lane: Real providers — paste RunPod URLs, live activate, forge smoke",
+    companion: "Lane: Companion Soul — named memories, stages, check-in",
+    money: "Lane: $ — NSM pipeline, earnings rollup, first dollar",
+    live: "Lane: Live — Assist headline, public board, lounge comments",
   };
 
   if (lane === "providers") {
     els.providerStatus?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    openEmpirePanel("agentTheaterPanel");
+    openEmpirePanel("innovationPanel");
   } else if (lane === "companion") {
     scrollToCompanionLane();
+    openEmpirePanel("companionSoulPanel");
   } else if (lane === "money") {
-    openEmpirePanel("characterForgePanel");
-    openEmpirePanel("revenueForgePanel");
+    openEmpirePanel("innovationMoneyPanel");
   } else if (lane === "live") {
-    openEmpirePanel("liveStagePanel");
-    openEmpirePanel("crownCompletionPanel");
+    openEmpirePanel("innovationLivePanel");
   }
 
   if (!quiet && messages[lane]) setLog(messages[lane]);
@@ -688,6 +723,371 @@ function initInnovationLanesDock() {
         setLog(`Opened ${value.slice(6)}`);
       }
     });
+  }
+}
+
+function updateSoulStageBadge(label) {
+  if (!els.soulStageLabel) return;
+  els.soulStageLabel.textContent = label || "—";
+  if (els.soulStageBadge) {
+    els.soulStageBadge.title = label ? `Companion Soul stage: ${label}` : "Companion Soul stage";
+  }
+}
+
+async function loadInnovationPanel({ quiet = false } = {}) {
+  if (!els.innovationStatus) return;
+  try {
+    const [statusRes, lanesRes, wiringRes, realRes] = await Promise.all([
+      fetch(`${API}/workforce/innovation`),
+      fetch(`${API}/workforce/innovation/lanes`),
+      fetch(`${API}/workforce/innovation/wiring`),
+      fetch(`${API}/workforce/innovation/real`),
+    ]);
+    if (!statusRes.ok || !lanesRes.ok || !wiringRes.ok) {
+      els.innovationStatus.textContent = "Innovation API unavailable.";
+      return;
+    }
+    const status = await statusRes.json();
+    const lanes = await lanesRes.json();
+    const wiring = await wiringRes.json();
+    const real = realRes.ok ? await realRes.json() : null;
+    els.innovationStatus.textContent =
+      `${status.active_lane_title} · wired ${wiring.readiness?.wired ? "yes" : "no"} · ` +
+      `configured ${status.configured_providers || 0}/3 · live-activate ${status.live_activate ? "on" : "off"}`;
+    if (els.innovationLaneList) {
+      els.innovationLaneList.innerHTML = "";
+      (lanes.lanes || []).forEach((lane) => {
+        const item = document.createElement("li");
+        item.textContent = `${lane.rank}. ${lane.label} — ${lane.title} (${lane.status})`;
+        els.innovationLaneList.appendChild(item);
+      });
+    }
+    if (els.innovationWiringStatus) {
+      els.innovationWiringStatus.textContent = wiring.message || "";
+    }
+    const effective = wiring.effective_providers || {};
+    if (els.innovationLlmUrl && !els.innovationLlmUrl.value && effective.llm?.base_url) {
+      els.innovationLlmUrl.value = effective.llm.base_url;
+    }
+    if (els.innovationTtsUrl && !els.innovationTtsUrl.value && effective.tts?.base_url) {
+      els.innovationTtsUrl.value = effective.tts.base_url;
+    }
+    if (els.innovationVideoUrl && !els.innovationVideoUrl.value && effective.video?.base_url) {
+      els.innovationVideoUrl.value = effective.video.base_url;
+    }
+    if (els.innovationEnvSnippet) {
+      if (wiring.env_snippet) {
+        els.innovationEnvSnippet.hidden = false;
+        els.innovationEnvSnippet.textContent = wiring.env_snippet;
+      } else {
+        els.innovationEnvSnippet.hidden = true;
+      }
+    }
+    if (!quiet && real) {
+      setLog(`Innovation: ${real.configured_providers || 0}/3 providers ready`);
+    }
+  } catch (error) {
+    els.innovationStatus.textContent = "Innovation failed to load.";
+    if (!quiet) setLog(`Innovation error: ${error.message || error}`);
+  }
+}
+
+async function submitInnovationWire(event) {
+  event.preventDefault();
+  const payload = {
+    llm_base_url: els.innovationLlmUrl?.value?.trim() || null,
+    tts_base_url: els.innovationTtsUrl?.value?.trim() || null,
+    video_base_url: els.innovationVideoUrl?.value?.trim() || null,
+    api_key: els.innovationApiKey?.value?.trim() || null,
+    enabled: true,
+  };
+  if (els.innovationWireBtn) els.innovationWireBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/innovation/wire`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `wire ${res.status}`);
+    setLog(body.message || "Wired");
+    showToast(body.pipelines_activated ? "Pipelines live — no restart" : body.message || "Wiring saved");
+    await loadInnovationPanel({ quiet: true });
+  } catch (error) {
+    setLog(`Wire failed: ${error.message || error}`);
+    showToast(`Wire failed: ${error.message || error}`, true);
+  } finally {
+    if (els.innovationWireBtn) els.innovationWireBtn.disabled = false;
+  }
+}
+
+async function runInnovationSmoke() {
+  if (els.innovationSmokeBtn) els.innovationSmokeBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/providers/forge/smoke`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `smoke ${res.status}`);
+    const ok = body.forge_ok ? "OK" : "needs attention";
+    setLog(`Forge smoke ${ok}`);
+    showToast(`Forge smoke ${ok}`);
+    await loadInnovationPanel({ quiet: true });
+  } catch (error) {
+    setLog(`Forge smoke failed: ${error.message || error}`);
+    showToast(`Forge smoke failed: ${error.message || error}`, true);
+  } finally {
+    if (els.innovationSmokeBtn) els.innovationSmokeBtn.disabled = false;
+  }
+}
+
+async function loadCompanionSoulPanel({ quiet = false } = {}) {
+  if (!els.companionSoulStatus) return;
+  try {
+    const laneRes = await fetch(`${API}/workforce/innovation/soul`);
+    if (!laneRes.ok) {
+      els.companionSoulStatus.textContent = "Soul API unavailable.";
+      return;
+    }
+    const lane = await laneRes.json();
+    els.companionSoulStatus.textContent =
+      `${lane.lane_title} · ${lane.status} · ${lane.memories_total} memories · ${lane.assist_owner}`;
+    if (!state.sessionId) {
+      if (els.companionSoulCheckin) {
+        els.companionSoulCheckin.textContent = "Connect a session to pin memories and check in.";
+      }
+      return;
+    }
+    const snapRes = await fetch(`${API}/companion/${state.sessionId}/soul`);
+    if (!snapRes.ok) return;
+    const snap = await snapRes.json();
+    updateSoulStageBadge(snap.soul_stage_label);
+    if (els.companionSoulCheckin) {
+      const greeting = snap.checkin?.greeting || "";
+      els.companionSoulCheckin.textContent =
+        `${snap.soul_stage_label} · bond ${snap.bond_score} · ${greeting}`;
+    }
+    if (els.companionSoulMemories) {
+      els.companionSoulMemories.innerHTML = "";
+      const memories = snap.memories || [];
+      if (!memories.length) {
+        const empty = document.createElement("li");
+        empty.className = "companion-soul-empty";
+        empty.textContent = "No named memories yet.";
+        els.companionSoulMemories.appendChild(empty);
+      } else {
+        memories.slice().reverse().forEach((memory) => {
+          const item = document.createElement("li");
+          item.textContent = `${memory.title}${memory.body ? ` — ${memory.body}` : ""}`;
+          els.companionSoulMemories.appendChild(item);
+        });
+      }
+    }
+    if (!quiet) setLog(`Soul: ${snap.soul_stage_label} · ${snap.memory_count} memories`);
+  } catch (error) {
+    els.companionSoulStatus.textContent = "Soul failed to load.";
+    if (!quiet) setLog(`Soul error: ${error.message || error}`);
+  }
+}
+
+async function submitSoulMemory(event) {
+  event.preventDefault();
+  if (!state.sessionId) {
+    showToast("Connect a session first", true);
+    return;
+  }
+  const title = els.companionSoulMemoryTitle?.value?.trim();
+  const body = els.companionSoulMemoryBody?.value?.trim() || "";
+  if (!title) {
+    showToast("Give the memory a title", true);
+    return;
+  }
+  if (els.companionSoulPinBtn) els.companionSoulPinBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/companion/${state.sessionId}/soul/memories`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, body, source: "pinned" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `pin ${res.status}`);
+    if (els.companionSoulMemoryTitle) els.companionSoulMemoryTitle.value = "";
+    if (els.companionSoulMemoryBody) els.companionSoulMemoryBody.value = "";
+    setLog(`Pinned memory: ${data.title}`);
+    showToast(`Held: ${data.title}`);
+    await loadCompanionSoulPanel({ quiet: true });
+  } catch (error) {
+    setLog(`Pin memory failed: ${error.message || error}`);
+    showToast(`Pin failed: ${error.message || error}`, true);
+  } finally {
+    if (els.companionSoulPinBtn) els.companionSoulPinBtn.disabled = false;
+  }
+}
+
+async function maybeSoulCheckin(sessionId) {
+  if (!sessionId) return;
+  try {
+    const res = await fetch(`${API}/companion/${sessionId}/soul/checkin`);
+    if (!res.ok) return;
+    const checkin = await res.json();
+    updateSoulStageBadge(checkin.soul_stage_label);
+    if (checkin.greeting) {
+      setLog(checkin.greeting);
+      if (checkin.returning) showToast(checkin.greeting);
+    }
+    if (els.companionSoulPanel?.open) {
+      await loadCompanionSoulPanel({ quiet: true });
+    }
+  } catch (error) {
+    console.warn("Soul check-in failed", error);
+  }
+}
+
+function formatCents(cents) {
+  const value = Number(cents) || 0;
+  return `$${(value / 100).toFixed(2)}`;
+}
+
+async function loadInnovationMoneyPanel({ quiet = false } = {}) {
+  if (!els.innovationMoneyStatus) return;
+  try {
+    const [statusRes, pipelineRes, earningsRes] = await Promise.all([
+      fetch(`${API}/workforce/innovation/money`),
+      fetch(`${API}/workforce/innovation/money/pipeline`),
+      fetch(`${API}/workforce/innovation/money/earnings`),
+    ]);
+    if (!statusRes.ok || !pipelineRes.ok || !earningsRes.ok) {
+      els.innovationMoneyStatus.textContent = "Money lane unavailable.";
+      return;
+    }
+    const status = await statusRes.json();
+    const pipeline = await pipelineRes.json();
+    const earnings = await earningsRes.json();
+    els.innovationMoneyStatus.textContent =
+      `${status.lane_title} · ${status.pipeline_live}/${status.pipeline_steps} live · ` +
+      `${status.characters_total} characters · ${formatCents(status.earnings_total_cents)}`;
+    if (els.innovationMoneyPipeline) {
+      els.innovationMoneyPipeline.innerHTML = "";
+      (pipeline.steps || []).forEach((step) => {
+        const item = document.createElement("li");
+        item.textContent = `${step.rank}. ${step.label} (${step.status})`;
+        els.innovationMoneyPipeline.appendChild(item);
+      });
+    }
+    if (els.innovationMoneyEarnings) {
+      els.innovationMoneyEarnings.innerHTML = "";
+      const rows = earnings.rows || [];
+      if (!rows.length) {
+        const empty = document.createElement("li");
+        empty.className = "innovation-money-empty";
+        empty.textContent = "No character earnings yet.";
+        els.innovationMoneyEarnings.appendChild(empty);
+      } else {
+        rows.forEach((row) => {
+          const item = document.createElement("li");
+          item.textContent =
+            `${row.display_name} — ${formatCents(row.total_cents)} ` +
+            `(res ${formatCents(row.residuals_cents)} · don ${formatCents(row.donations_cents)} · live ${formatCents(row.live_billing_cents)})`;
+          els.innovationMoneyEarnings.appendChild(item);
+        });
+      }
+    }
+    if (!quiet) setLog(`$: ${status.characters_total} characters · ${formatCents(status.earnings_total_cents)}`);
+  } catch (error) {
+    els.innovationMoneyStatus.textContent = "Money lane failed to load.";
+    if (!quiet) setLog(`$ error: ${error.message || error}`);
+  }
+}
+
+async function runFirstDollar() {
+  if (els.innovationFirstDollarBtn) els.innovationFirstDollarBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/innovation/money/first-dollar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `first-dollar ${res.status}`);
+    setLog(body.message || "First dollar recorded");
+    showToast(body.message || "First dollar recorded");
+    await loadInnovationMoneyPanel({ quiet: true });
+  } catch (error) {
+    setLog(`First dollar failed: ${error.message || error}`);
+    showToast(`First dollar failed: ${error.message || error}`, true);
+  } finally {
+    if (els.innovationFirstDollarBtn) els.innovationFirstDollarBtn.disabled = false;
+  }
+}
+
+function renderInnovationLiveBoard(board) {
+  if (!els.innovationLiveBoard) return;
+  if (!board) {
+    els.innovationLiveBoard.textContent = "Public board unavailable.";
+    return;
+  }
+  const ticket = formatCents(board.ticket_price_cents);
+  els.innovationLiveBoard.innerHTML = "";
+  const title = document.createElement("div");
+  title.textContent = `${board.title} · ${board.status}`;
+  const host = document.createElement("div");
+  host.textContent = `Host ${board.host} · ${board.headline_title} (${board.headline_status})`;
+  const cam = document.createElement("div");
+  cam.textContent = `${board.cam_title} · ${board.cam_status} · ticket ${ticket}`;
+  const doors = document.createElement("div");
+  doors.textContent = board.doors || "";
+  els.innovationLiveBoard.append(title, host, cam, doors);
+}
+
+async function loadInnovationLivePanel({ quiet = false } = {}) {
+  if (!els.innovationLiveStatus) return;
+  try {
+    const [statusRes, readyRes, boardRes] = await Promise.all([
+      fetch(`${API}/workforce/innovation/live`),
+      fetch(`${API}/workforce/innovation/live/readiness`),
+      fetch(`${API}/workforce/innovation/live/board`),
+    ]);
+    if (!statusRes.ok || !readyRes.ok || !boardRes.ok) {
+      els.innovationLiveStatus.textContent = "Live launch unavailable.";
+      return;
+    }
+    const status = await statusRes.json();
+    const ready = await readyRes.json();
+    const board = await boardRes.json();
+    els.innovationLiveStatus.textContent =
+      `${status.lane_title} · ${status.checks_ready}/${status.checks_total} ready · ` +
+      `${status.launch_live ? "doors open" : "doors closed"} · headline ${status.headline_status}`;
+    if (els.innovationLiveChecks) {
+      els.innovationLiveChecks.innerHTML = "";
+      (ready.checks || []).forEach((check) => {
+        const item = document.createElement("li");
+        item.className = check.ready ? "innovation-live-check-ready" : "innovation-live-check-wait";
+        item.textContent = `${check.ready ? "Ready" : "Wait"} · ${check.label}`;
+        els.innovationLiveChecks.appendChild(item);
+      });
+    }
+    renderInnovationLiveBoard(board);
+    if (!quiet) {
+      setLog(`Live: ${status.checks_ready}/${status.checks_total} ready · ${board.status}`);
+    }
+  } catch (error) {
+    els.innovationLiveStatus.textContent = "Live launch failed to load.";
+    if (!quiet) setLog(`Live error: ${error.message || error}`);
+  }
+}
+
+async function runGoLive() {
+  if (els.innovationGoLiveBtn) els.innovationGoLiveBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/innovation/live/go-live`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `go-live ${res.status}`);
+    setLog(body.message || "Live. Doors open.");
+    showToast(body.message || "Live. Doors open.");
+    await loadInnovationLivePanel({ quiet: true });
+  } catch (error) {
+    setLog(`Go live failed: ${error.message || error}`);
+    showToast(`Go live failed: ${error.message || error}`, true);
+  } finally {
+    if (els.innovationGoLiveBtn) els.innovationGoLiveBtn.disabled = false;
   }
 }
 
@@ -2049,6 +2449,7 @@ function applyCompanionConfig(config) {
   if (typeof config.bond_score === "number") {
     updateBondMeter(config.bond_score);
   }
+  updateSoulStageBadge(config.soul_stage_label || config.soul_stage);
 }
 
 function selectAvatar(avatarId, options = {}) {
@@ -3382,6 +3783,7 @@ async function connect(resumeSessionId = null, options = {}) {
       }
     }
     await patchCompanionConfig(state.sessionId);
+    await maybeSoulCheckin(state.sessionId);
 
     if (wasNotFoundOnResume) {
       state.connectionMode = "new";
@@ -3788,6 +4190,51 @@ if (els.sseModeBtn) {
 if (els.workforcePanel) {
   els.workforcePanel.addEventListener("toggle", () => {
     if (els.workforcePanel.open) loadWorkforceRoster().catch(() => {});
+  });
+}
+if (els.innovationPanel) {
+  els.innovationPanel.addEventListener("toggle", () => {
+    if (els.innovationPanel.open) loadInnovationPanel().catch(() => {});
+  });
+}
+if (els.innovationWireForm) {
+  els.innovationWireForm.addEventListener("submit", (event) => {
+    submitInnovationWire(event).catch(() => {});
+  });
+}
+if (els.innovationSmokeBtn) {
+  els.innovationSmokeBtn.addEventListener("click", () => {
+    runInnovationSmoke().catch(() => {});
+  });
+}
+if (els.companionSoulPanel) {
+  els.companionSoulPanel.addEventListener("toggle", () => {
+    if (els.companionSoulPanel.open) loadCompanionSoulPanel().catch(() => {});
+  });
+}
+if (els.companionSoulMemoryForm) {
+  els.companionSoulMemoryForm.addEventListener("submit", (event) => {
+    submitSoulMemory(event).catch(() => {});
+  });
+}
+if (els.innovationMoneyPanel) {
+  els.innovationMoneyPanel.addEventListener("toggle", () => {
+    if (els.innovationMoneyPanel.open) loadInnovationMoneyPanel().catch(() => {});
+  });
+}
+if (els.innovationFirstDollarBtn) {
+  els.innovationFirstDollarBtn.addEventListener("click", () => {
+    runFirstDollar().catch(() => {});
+  });
+}
+if (els.innovationLivePanel) {
+  els.innovationLivePanel.addEventListener("toggle", () => {
+    if (els.innovationLivePanel.open) loadInnovationLivePanel().catch(() => {});
+  });
+}
+if (els.innovationGoLiveBtn) {
+  els.innovationGoLiveBtn.addEventListener("click", () => {
+    runGoLive().catch(() => {});
   });
 }
 if (els.swarmPayoutPanel) {

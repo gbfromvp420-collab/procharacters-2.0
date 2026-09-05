@@ -170,7 +170,7 @@ def test_crown_grant_all_boss_sr_yes(crown_client: TestClient) -> None:
     body = response.json()
     assert body["boss_sr_accepted_all"] is True
     assert body["gifts_granted"] == 8
-    assert body["platinum_ledger_entries"] == 26
+    assert body["platinum_ledger_entries"] == len(WORKFORCE_ROSTER)
     assert body["revenue_bonuses_applied"] is True
     assert body["live_headline_session_id"]
     assert body["creative_session_id"]
