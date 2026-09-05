@@ -1062,6 +1062,55 @@ body.has-lanes-dock .toast {
   font-style: italic;
 }
 
+.innovation-money-panel {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.innovation-money-panel summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  color: #7dd3a8;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.innovation-money-panel summary:hover {
+  opacity: 0.85;
+}
+
+.innovation-money-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.innovation-money-status {
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.innovation-money-pipeline,
+.innovation-money-earnings {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 0.66rem;
+}
+
+.innovation-money-earnings {
+  padding-left: 0;
+  list-style: none;
+}
+
+.innovation-money-empty {
+  opacity: 0.7;
+  font-style: italic;
+}
+
 .workforce-roster {
   display: grid;
   gap: 6px;
@@ -2162,6 +2211,7 @@ body.has-lanes-dock .toast {
   .workforce-panel summary,
   .innovation-panel summary,
   .companion-soul-panel summary,
+  .innovation-money-panel summary,
   .swarm-payout-panel summary,
   .crown-completion-panel summary,
   .sovereign-scale-panel summary,

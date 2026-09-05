@@ -63,8 +63,15 @@ from app.models.workforce import (
     ResidualEntryResponse,
     EnvChecklistItemResponse,
     HardeningCheckResponse,
+    CharacterEarningsListResponse,
+    CharacterEarningsRowResponse,
+    CharacterRevenueLaneResponse,
     CompanionSoulLaneResponse,
+    FirstDollarRequest,
+    FirstDollarResponse,
     InnovationLaneListResponse,
+    NsmPipelineResponse,
+    NsmPipelineStepResponse,
     InnovationLaneResponse,
     InnovationResponse,
     RealProviderReadinessItem,
@@ -1413,6 +1420,95 @@ async def innovation_companion_soul(request: Request) -> CompanionSoulLaneRespon
         sessions_with_memories=raw["sessions_with_memories"],
         memories_total=raw["memories_total"],
         assist_owner=raw["assist_owner"],
+    )
+
+
+@router.get(
+    "/innovation/money",
+    response_model=CharacterRevenueLaneResponse,
+    summary="Lane 3 — Characters + Revenue status and earnings totals",
+)
+async def innovation_money_status(request: Request) -> CharacterRevenueLaneResponse:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=request.app.state.character_forge,
+        revenue=request.app.state.revenue_forge,
+        live=request.app.state.live_stage,
+    )
+    return CharacterRevenueLaneResponse(**lane.snapshot())
+
+
+@router.get(
+    "/innovation/money/pipeline",
+    response_model=NsmPipelineResponse,
+    summary="NSM character pipeline spec — opt-in through earnings rollup",
+)
+async def innovation_money_pipeline(request: Request) -> NsmPipelineResponse:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=request.app.state.character_forge,
+        revenue=request.app.state.revenue_forge,
+        live=request.app.state.live_stage,
+    )
+    steps = [NsmPipelineStepResponse(**item) for item in lane.pipeline_spec()]
+    return NsmPipelineResponse(
+        steps=steps,
+        count=len(steps),
+        contact_email="gary@procharacters.cloud",
+    )
+
+
+@router.get(
+    "/innovation/money/earnings",
+    response_model=CharacterEarningsListResponse,
+    summary="Character earnings rollup — residuals + donations + live billing",
+)
+async def innovation_money_earnings(request: Request) -> CharacterEarningsListResponse:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=request.app.state.character_forge,
+        revenue=request.app.state.revenue_forge,
+        live=request.app.state.live_stage,
+    )
+    rows = [CharacterEarningsRowResponse(**item) for item in lane.earnings_rows()]
+    return CharacterEarningsListResponse(
+        rows=rows,
+        count=len(rows),
+        total_cents=sum(row.total_cents for row in rows),
+    )
+
+
+@router.post(
+    "/innovation/money/first-dollar",
+    response_model=FirstDollarResponse,
+    summary="Lane 3 first dollar — onboard if needed, residual + routed donation",
+)
+async def innovation_money_first_dollar(
+    request: Request,
+    body: FirstDollarRequest,
+) -> FirstDollarResponse:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=request.app.state.character_forge,
+        revenue=request.app.state.revenue_forge,
+        live=request.app.state.live_stage,
+    )
+    raw = lane.first_dollar(member_id=body.member_id)
+    earnings = raw.get("earnings")
+    return FirstDollarResponse(
+        character_id=raw["character_id"],
+        member_id=raw["member_id"],
+        display_name=raw["display_name"],
+        residual_id=raw["residual_id"],
+        ledger_id=raw["ledger_id"],
+        amount_cents=raw["amount_cents"],
+        donation_payout_percent=raw["donation_payout_percent"],
+        earnings=CharacterEarningsRowResponse(**earnings) if isinstance(earnings, dict) else None,
+        message=raw["message"],
     )
 
 

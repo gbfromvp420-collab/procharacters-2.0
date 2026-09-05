@@ -133,10 +133,18 @@ curl -X POST http://localhost:8000/api/v1/companion/SESSION/soul/memories \
   -d '{"title":"July 4th night","body":"We named the journal."}'
 curl http://localhost:8000/api/v1/companion/SESSION/soul/checkin
 
+# Lane 3 — Characters + Revenue (NSM pipeline + earnings rollup)
+curl http://localhost:8000/api/v1/workforce/innovation/money
+curl http://localhost:8000/api/v1/workforce/innovation/money/pipeline
+curl -X POST http://localhost:8000/api/v1/workforce/innovation/money/first-dollar \
+  -H 'Content-Type: application/json' \
+  -d '{"member_id":"characterforge-nsm-sub-01"}'
+curl http://localhost:8000/api/v1/workforce/innovation/money/earnings
+
 make verify-innovation
 ```
 
-Expand **Innovation · Wire** to paste three Connect proxy URLs. Expand **Companion Soul** to pin memories and see the check-in greeting. The header Soul badge tracks the current stage.
+Expand **Innovation · Wire** to paste three Connect proxy URLs. Expand **Companion Soul** to pin memories and see the check-in greeting. Expand **Innovation · $** for the NSM pipeline spec and character earnings rollup (residuals + donations + live billing).
 
 ### Sovereign Scale (Phase 19)
 
@@ -433,6 +441,7 @@ Shipped across phases 1–20:
 - Crown Completion: Pure Platinum $5K for all workers, phase rankings, Assist promotion, Boss Sr. gift catalog, co-sign ledger, `make verify-empire-complete`
 - Innovation Lane 1 live-activate: paste RunPod URLs, pipelines hot-reload, no restart, `make verify-innovation`
 - Innovation Lane 2 Companion Soul: named memories, soul stages, check-in overlay, Assist's platinum lane
+- Innovation Lane 3 Characters + Revenue: NSM pipeline spec, earnings rollup, first-dollar residual + donation
 
 **v1.0.0 — The empire stands. Innovation continues.**
 

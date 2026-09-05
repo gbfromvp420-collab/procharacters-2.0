@@ -80,6 +80,23 @@ async def _exec_companion_soul(prompt: str, ctx: WorkforceContext) -> str:
     )
 
 
+async def _exec_character_revenue(prompt: str, ctx: WorkforceContext) -> str:
+    from app.services.workforce.character_revenue import CharacterRevenueLane
+
+    lane = CharacterRevenueLane(
+        characters=ctx.character_forge,
+        revenue=ctx.revenue_forge,
+        live=ctx.live_stage,
+    )
+    snap = lane.snapshot()
+    return (
+        f"Lane 3 $ — characters={snap['characters_total']} "
+        f"earnings_cents={snap['earnings_total_cents']} "
+        f"pipeline={snap['pipeline_live']}/{snap['pipeline_steps']}. "
+        f"Note: {prompt[:200]}"
+    )
+
+
 async def _exec_crown_soul_slot(prompt: str, ctx: WorkforceContext) -> str:
     promo = ctx.crown_completion.get_promotion()
     return (
@@ -261,6 +278,8 @@ _SKILL_EXECUTORS: dict[str, SkillExecutor] = {
     "RunPod_LiveActivate_NoRestart": _exec_innovation_wire,
     "Companion_Soul_Authority": _exec_companion_soul,
     "SoulMemory_Checkin_Stages": _exec_companion_soul,
+    "Characters_Revenue_Authority": _exec_character_revenue,
+    "NSM_Pipeline_EarningsRollup": _exec_character_revenue,
 }
 
 

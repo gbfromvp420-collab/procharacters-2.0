@@ -232,6 +232,17 @@
                 </ul>
               </div>
             </details>
+            <details id="innovationMoneyPanel" class="innovation-money-panel">
+              <summary>Innovation · $</summary>
+              <div class="innovation-money-body">
+                <div id="innovationMoneyStatus" class="innovation-money-status" aria-live="polite">Expand to load earnings…</div>
+                <ol id="innovationMoneyPipeline" class="innovation-money-pipeline" aria-live="polite"></ol>
+                <button id="innovationFirstDollarBtn" class="btn-ghost" type="button">First dollar</button>
+                <ul id="innovationMoneyEarnings" class="innovation-money-earnings" aria-live="polite">
+                  <li class="innovation-money-empty">No character earnings yet.</li>
+                </ul>
+              </div>
+            </details>
             <details id="swarmPayoutPanel" class="swarm-payout-panel">
               <summary>AI Swarm Payout</summary>
               <div class="swarm-payout-body">
@@ -403,6 +414,7 @@
           <optgroup label="Empire">
             <option value="panel:innovationPanel">Innovation Wire</option>
             <option value="panel:companionSoulPanel">Companion Soul</option>
+            <option value="panel:innovationMoneyPanel">Characters + $</option>
             <option value="panel:swarmPayoutPanel">Swarm Payout</option>
             <option value="panel:crownCompletionPanel">Crown</option>
             <option value="panel:liveStagePanel">Live Stage</option>

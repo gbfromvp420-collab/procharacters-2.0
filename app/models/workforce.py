@@ -925,6 +925,70 @@ class CompanionSoulLaneResponse(BaseModel):
     assist_owner: str
 
 
+class NsmPipelineStepResponse(BaseModel):
+    id: str
+    rank: int
+    label: str
+    summary: str
+    api: str
+    status: str
+
+
+class CharacterEarningsRowResponse(BaseModel):
+    character_id: str
+    member_id: str
+    codename: str
+    display_name: str
+    status: str
+    avatar_id: str | None = None
+    residual_percent: float
+    residuals_cents: int
+    donations_cents: int
+    live_billing_cents: int
+    total_cents: int
+
+
+class CharacterEarningsListResponse(BaseModel):
+    rows: list[CharacterEarningsRowResponse]
+    count: int
+    total_cents: int
+
+
+class NsmPipelineResponse(BaseModel):
+    steps: list[NsmPipelineStepResponse]
+    count: int
+    contact_email: str
+    title: str = "NSM character pipeline"
+
+
+class CharacterRevenueLaneResponse(BaseModel):
+    lane_id: str
+    lane_title: str
+    status: str
+    contact_email: str
+    pipeline_steps: int
+    pipeline_live: int
+    characters_total: int
+    earnings_total_cents: int
+    first_dollar_member_id: str
+
+
+class FirstDollarRequest(BaseModel):
+    member_id: str | None = Field(default=None, max_length=80)
+
+
+class FirstDollarResponse(BaseModel):
+    character_id: str
+    member_id: str
+    display_name: str
+    residual_id: str
+    ledger_id: str
+    amount_cents: int
+    donation_payout_percent: float
+    earnings: CharacterEarningsRowResponse | None = None
+    message: str
+
+
 class InnovationResponse(BaseModel):
     deployment_phase: int
     app_version: str
@@ -936,6 +1000,7 @@ class InnovationResponse(BaseModel):
     real_providers_ready: bool
     configured_providers: int
     soul_lane_status: str = "in_progress"
+    money_lane_status: str = "in_progress"
     live_activate: bool = True
     schema_path: str
 

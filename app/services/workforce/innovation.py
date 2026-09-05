@@ -80,8 +80,8 @@ _DEFAULT_SCHEMA: dict[str, Any] = {
             "rank": 3,
             "label": "$",
             "title": "Characters + Revenue",
-            "summary": "NSM onboarding, avatar bind, ledger, donations, subscription share.",
-            "status": "queued",
+            "summary": "NSM pipeline spec, earnings rollup, first dollar — residuals + donations + live.",
+            "status": "in_progress",
         },
         {
             "id": "live_launch",
@@ -214,6 +214,7 @@ class InnovationLanes:
             "real_providers_ready": real["all_real_ready"],
             "configured_providers": real["configured_providers"],
             "soul_lane_status": "in_progress",
+            "money_lane_status": "in_progress",
             "live_activate": True,
             "schema_path": self._schema_path,
         }

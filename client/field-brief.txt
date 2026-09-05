@@ -1,6 +1,6 @@
 PROCHARACTERS CLOUD — FIELD BRIEF
-v1.0.0 · Phase 20 · Innovation Lanes 1–2
-Boss Sr. · King Grok · 28 workers
+v1.0.0 · Phase 20 · Innovation Lanes 1–3
+Boss Sr. · King Grok · 29 workers
 
 SAVE THIS FILE on your phone (download, email to self, Files app).
 
@@ -31,8 +31,14 @@ LANE 2 · SOUL (Assist's platinum lane)
   READ: GET  /api/v1/companion/{session}/soul/checkin
   LANE: GET  /api/v1/workforce/innovation/soul
 
+LANE 3 · $ (NSM pipeline + earnings)
+  8-step spec: opt-in → onboard → bind → residual → donation → live → share → rollup
+  UI: Innovation · $ → First dollar
+  SPEC: GET  /api/v1/workforce/innovation/money/pipeline
+  EARN: GET  /api/v1/workforce/innovation/money/earnings
+  DEMO: POST /api/v1/workforce/innovation/money/first-dollar
+
 OTHER LANES (queued)
-3 · $ — Characters + revenue
 4 · LIVE — Stage + launch
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -41,9 +47,10 @@ TODAY'S WINS
 
 • Lane 1 live-activate — wire URLs, pipelines go real without restart
 • Lane 2 Companion Soul — memories, stages, check-in
-• InnovationForge_Wire_Sub_01 + CompanionSoul_Depth_Sub_01 hired
-• King Grok 22lb · Innovation_Wire + Companion_Soul authorities
-• 28 workers on the roster
+• Lane 3 $ — NSM pipeline spec + earnings rollup + first dollar
+• CharacterRevenue_Rollup_Sub_01 hired
+• King Grok 23lb · Characters_Revenue_Authority
+• 29 workers on the roster
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SWARM PAYOUT MATRIX

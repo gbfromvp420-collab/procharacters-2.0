@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Innovation Lanes 1–2 verification: live-activate wiring + companion soul."""
+"""Innovation Lanes 1–3 verification: wire, soul, and character revenue."""
 
 from __future__ import annotations
 
@@ -87,6 +87,26 @@ def _probe_innovation() -> int:
             print("soul checkin failed")
             return 1
         print(f"  soul checkin={checkin.json().get('soul_stage_label')}")
+
+        money = client.get(f"{BASE}/workforce/innovation/money")
+        if money.status_code != 200 or money.json().get("lane_id") != "characters_revenue":
+            print("Expected characters_revenue lane")
+            return 1
+        pipeline = client.get(f"{BASE}/workforce/innovation/money/pipeline")
+        if pipeline.status_code != 200 or pipeline.json().get("count") != 8:
+            print("Expected 8 NSM pipeline steps")
+            return 1
+        first = client.post(
+            f"{BASE}/workforce/innovation/money/first-dollar",
+            json={"member_id": "characterforge-nsm-sub-01"},
+        )
+        if first.status_code != 200:
+            print(f"first-dollar failed: {first.status_code}")
+            return 1
+        print(
+            f"  money pipeline={pipeline.json().get('count')} "
+            f"first_dollar={first.json().get('amount_cents')}c"
+        )
         return 0
 
 
@@ -100,7 +120,7 @@ def main() -> int:
         return 1
 
     if args.skip_probes:
-        print("INNOVATION LANES 1–2 VERIFY OK (pytest only)")
+        print("INNOVATION LANES 1–3 VERIFY OK (pytest only)")
         return 0
 
     server_proc: subprocess.Popen | None = None
@@ -136,7 +156,7 @@ def main() -> int:
     if code != 0:
         return code
 
-    print("INNOVATION LANES 1–2 VERIFY OK")
+    print("INNOVATION LANES 1–3 VERIFY OK")
     return 0
 
 

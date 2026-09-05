@@ -191,6 +191,11 @@ const els = {
   companionSoulMemoryBody: document.getElementById("companionSoulMemoryBody"),
   companionSoulPinBtn: document.getElementById("companionSoulPinBtn"),
   companionSoulMemories: document.getElementById("companionSoulMemories"),
+  innovationMoneyPanel: document.getElementById("innovationMoneyPanel"),
+  innovationMoneyStatus: document.getElementById("innovationMoneyStatus"),
+  innovationMoneyPipeline: document.getElementById("innovationMoneyPipeline"),
+  innovationFirstDollarBtn: document.getElementById("innovationFirstDollarBtn"),
+  innovationMoneyEarnings: document.getElementById("innovationMoneyEarnings"),
   soulStageBadge: document.getElementById("soulStageBadge"),
   soulStageLabel: document.getElementById("soulStageLabel"),
   innovationLanesDock: document.getElementById("innovationLanesDock"),
@@ -627,6 +632,7 @@ async function refreshBondScore() {
 const LANE_PANEL_LOADERS = {
   innovationPanel: () => loadInnovationPanel({ quiet: true }).catch(() => {}),
   companionSoulPanel: () => loadCompanionSoulPanel({ quiet: true }).catch(() => {}),
+  innovationMoneyPanel: () => loadInnovationMoneyPanel({ quiet: true }).catch(() => {}),
   swarmPayoutPanel: () => startSwarmPayoutPolling(),
   crownCompletionPanel: () => startCrownCompletionPolling(),
   sovereignScalePanel: () => startSovereignScalePolling(),
@@ -667,7 +673,7 @@ function activateInnovationLane(lane, { quiet = false } = {}) {
   const messages = {
     providers: "Lane: Real providers — paste RunPod URLs, live activate, forge smoke",
     companion: "Lane: Companion Soul — named memories, stages, check-in",
-    money: "Lane: Characters + Revenue — NSM forge and ledger",
+    money: "Lane: $ — NSM pipeline, earnings rollup, first dollar",
     live: "Lane: Live launch — ticketed shows and crown headline",
   };
 
@@ -678,8 +684,7 @@ function activateInnovationLane(lane, { quiet = false } = {}) {
     scrollToCompanionLane();
     openEmpirePanel("companionSoulPanel");
   } else if (lane === "money") {
-    openEmpirePanel("characterForgePanel");
-    openEmpirePanel("revenueForgePanel");
+    openEmpirePanel("innovationMoneyPanel");
   } else if (lane === "live") {
     openEmpirePanel("liveStagePanel");
     openEmpirePanel("crownCompletionPanel");
@@ -928,6 +933,83 @@ async function maybeSoulCheckin(sessionId) {
     }
   } catch (error) {
     console.warn("Soul check-in failed", error);
+  }
+}
+
+function formatCents(cents) {
+  const value = Number(cents) || 0;
+  return `$${(value / 100).toFixed(2)}`;
+}
+
+async function loadInnovationMoneyPanel({ quiet = false } = {}) {
+  if (!els.innovationMoneyStatus) return;
+  try {
+    const [statusRes, pipelineRes, earningsRes] = await Promise.all([
+      fetch(`${API}/workforce/innovation/money`),
+      fetch(`${API}/workforce/innovation/money/pipeline`),
+      fetch(`${API}/workforce/innovation/money/earnings`),
+    ]);
+    if (!statusRes.ok || !pipelineRes.ok || !earningsRes.ok) {
+      els.innovationMoneyStatus.textContent = "Money lane unavailable.";
+      return;
+    }
+    const status = await statusRes.json();
+    const pipeline = await pipelineRes.json();
+    const earnings = await earningsRes.json();
+    els.innovationMoneyStatus.textContent =
+      `${status.lane_title} · ${status.pipeline_live}/${status.pipeline_steps} live · ` +
+      `${status.characters_total} characters · ${formatCents(status.earnings_total_cents)}`;
+    if (els.innovationMoneyPipeline) {
+      els.innovationMoneyPipeline.innerHTML = "";
+      (pipeline.steps || []).forEach((step) => {
+        const item = document.createElement("li");
+        item.textContent = `${step.rank}. ${step.label} (${step.status})`;
+        els.innovationMoneyPipeline.appendChild(item);
+      });
+    }
+    if (els.innovationMoneyEarnings) {
+      els.innovationMoneyEarnings.innerHTML = "";
+      const rows = earnings.rows || [];
+      if (!rows.length) {
+        const empty = document.createElement("li");
+        empty.className = "innovation-money-empty";
+        empty.textContent = "No character earnings yet.";
+        els.innovationMoneyEarnings.appendChild(empty);
+      } else {
+        rows.forEach((row) => {
+          const item = document.createElement("li");
+          item.textContent =
+            `${row.display_name} — ${formatCents(row.total_cents)} ` +
+            `(res ${formatCents(row.residuals_cents)} · don ${formatCents(row.donations_cents)} · live ${formatCents(row.live_billing_cents)})`;
+          els.innovationMoneyEarnings.appendChild(item);
+        });
+      }
+    }
+    if (!quiet) setLog(`$: ${status.characters_total} characters · ${formatCents(status.earnings_total_cents)}`);
+  } catch (error) {
+    els.innovationMoneyStatus.textContent = "Money lane failed to load.";
+    if (!quiet) setLog(`$ error: ${error.message || error}`);
+  }
+}
+
+async function runFirstDollar() {
+  if (els.innovationFirstDollarBtn) els.innovationFirstDollarBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/innovation/money/first-dollar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `first-dollar ${res.status}`);
+    setLog(body.message || "First dollar recorded");
+    showToast(body.message || "First dollar recorded");
+    await loadInnovationMoneyPanel({ quiet: true });
+  } catch (error) {
+    setLog(`First dollar failed: ${error.message || error}`);
+    showToast(`First dollar failed: ${error.message || error}`, true);
+  } finally {
+    if (els.innovationFirstDollarBtn) els.innovationFirstDollarBtn.disabled = false;
   }
 }
 
@@ -4055,6 +4137,16 @@ if (els.companionSoulPanel) {
 if (els.companionSoulMemoryForm) {
   els.companionSoulMemoryForm.addEventListener("submit", (event) => {
     submitSoulMemory(event).catch(() => {});
+  });
+}
+if (els.innovationMoneyPanel) {
+  els.innovationMoneyPanel.addEventListener("toggle", () => {
+    if (els.innovationMoneyPanel.open) loadInnovationMoneyPanel().catch(() => {});
+  });
+}
+if (els.innovationFirstDollarBtn) {
+  els.innovationFirstDollarBtn.addEventListener("click", () => {
+    runFirstDollar().catch(() => {});
   });
 }
 if (els.swarmPayoutPanel) {
