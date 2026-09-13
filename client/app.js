@@ -791,14 +791,17 @@ async function loadInnovationPanel({ quiet = false } = {}) {
       els.innovationWiringStatus.textContent = wiring.message || "";
     }
     const effective = wiring.effective_providers || {};
-    if (els.innovationLlmUrl && !els.innovationLlmUrl.value && effective.llm?.base_url) {
-      els.innovationLlmUrl.value = effective.llm.base_url;
-    }
-    if (els.innovationTtsUrl && !els.innovationTtsUrl.value && effective.tts?.base_url) {
-      els.innovationTtsUrl.value = effective.tts.base_url;
-    }
-    if (els.innovationVideoUrl && !els.innovationVideoUrl.value && effective.video?.base_url) {
-      els.innovationVideoUrl.value = effective.video.base_url;
+    const wired = Boolean(wiring.readiness?.wired);
+    if (wired) {
+      if (els.innovationLlmUrl && effective.llm?.base_url) {
+        els.innovationLlmUrl.value = effective.llm.base_url;
+      }
+      if (els.innovationTtsUrl && effective.tts?.base_url) {
+        els.innovationTtsUrl.value = effective.tts.base_url;
+      }
+      if (els.innovationVideoUrl && effective.video?.base_url) {
+        els.innovationVideoUrl.value = effective.video.base_url;
+      }
     }
     if (els.innovationEnvSnippet) {
       if (wiring.env_snippet) {
