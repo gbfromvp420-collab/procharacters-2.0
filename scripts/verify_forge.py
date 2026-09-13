@@ -122,7 +122,16 @@ def _probe_http_path() -> int:
     backend = start_contract_backend()
     app_port = pick_free_port()
     app_base = f"http://127.0.0.1:{app_port}/api/v1"
-    wiring_path = tempfile.NamedTemporaryFile(prefix="pc-wiring-", suffix=".json", delete=False).name
+    wiring_file = tempfile.NamedTemporaryFile(
+        prefix="pc-wiring-",
+        suffix=".json",
+        delete=False,
+        mode="w",
+        encoding="utf-8",
+    )
+    wiring_file.write('{"enabled": false}\n')
+    wiring_file.close()
+    wiring_path = wiring_file.name
     env = backend.http_env()
     env["HOST"] = "127.0.0.1"
     env["PORT"] = str(app_port)
