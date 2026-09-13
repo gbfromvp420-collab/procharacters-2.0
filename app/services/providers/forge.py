@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING
 from app.models.llm import ChatMessage
 from app.models.providers import ProviderForgeEntry, ProviderForgeResponse, ProviderContractSpec
 from app.services.llm.client import create_llm_client
-from app.services.providers.contracts import PROVIDER_CONTRACTS, is_placeholder_endpoint
+from app.services.providers.contracts import (
+    PROVIDER_CONTRACTS,
+    is_local_contract_endpoint,
+    is_placeholder_endpoint,
+)
 from app.services.tts.client import create_tts_client
 from app.services.video.client import create_musetalk_client
 from app.services.video.sync import SyncTimeline
@@ -169,6 +173,8 @@ class ProviderContractForge:
             contract_ok = contract_ok and smoke_ok
             if smoke_message:
                 message = smoke_message
+                if smoke_ok and is_local_contract_endpoint(endpoint):
+                    message = f"local contract: {smoke_message}"
 
         return ProviderForgeEntry(
             provider=provider,  # type: ignore[arg-type]

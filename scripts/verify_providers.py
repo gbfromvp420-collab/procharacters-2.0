@@ -8,7 +8,14 @@ Usage examples:
   # Mock (default) - no external services
   python scripts/verify_providers.py
 
-  # Against real http endpoints (set provider + base urls)
+  # Against the local contract backend (no RunPod keys)
+  python -m app.services.providers.contract_backend --port 8010
+  LLM_PROVIDER=openai_compatible LLM_BASE_URL=http://127.0.0.1:8010/v1 \
+  TTS_PROVIDER=http TTS_BASE_URL=http://127.0.0.1:8010 \
+  VIDEO_PROVIDER=http VIDEO_BASE_URL=http://127.0.0.1:8010 \
+    python scripts/verify_providers.py --all
+
+  # Against real http endpoints you already own (set provider + base urls)
   LLM_PROVIDER=openai_compatible LLM_BASE_URL=http://localhost:8001/v1 \
   TTS_PROVIDER=http TTS_BASE_URL=http://localhost:8002 \
   VIDEO_PROVIDER=http VIDEO_BASE_URL=http://localhost:8003 \

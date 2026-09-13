@@ -6,6 +6,7 @@ Run: python -m pytest tests/test_contracts.py -q --tb=line
 from unittest.mock import MagicMock
 
 import base64
+import json
 
 import pytest
 
@@ -20,8 +21,9 @@ from app.services.video.sync import SyncTimeline
 class _MockStreamResponse:
     """Minimal async context manager mimicking httpx stream response."""
 
-    def __init__(self, lines: list[str]) -> None:
+    def __init__(self, lines: list[str], *, content_type: str = "text/event-stream") -> None:
         self._lines = lines
+        self.headers = {"content-type": content_type}
 
     async def __aenter__(self) -> "_MockStreamResponse":
         return self
@@ -31,6 +33,9 @@ class _MockStreamResponse:
 
     def raise_for_status(self) -> None:
         return None
+
+    async def aread(self) -> bytes:
+        return "\n".join(self._lines).encode("utf-8")
 
     async def aiter_lines(self):
         for line in self._lines:
@@ -53,11 +58,13 @@ async def test_http_tts_client_request_shape() -> None:
     mock_response = MagicMock()
     mock_response.raise_for_status = MagicMock()
     mock_response.headers = {"content-type": "application/json"}
-    mock_response.json.return_value = {
-        "audio_b64": base64.b64encode(pcm).decode("ascii"),
-        "sample_rate": 24000,
-        "channels": 1,
-    }
+    mock_response.content = json.dumps(
+        {
+            "audio_b64": base64.b64encode(pcm).decode("ascii"),
+            "sample_rate": 24000,
+            "channels": 1,
+        }
+    ).encode("ascii")
 
     async def mock_post(path: str, *, json: dict | None = None, **kwargs: object):
         captured["path"] = path
@@ -190,6 +197,34 @@ async def test_openai_compatible_llm_client_parses_sse_stream() -> None:
     assert captured["json"]["temperature"] == 0.5
     assert captured["json"]["messages"] == [{"role": "user", "content": "hi"}]
     assert tokens == ["Hel", "lo"]
+
+
+@pytest.mark.asyncio
+async def test_openai_compatible_llm_client_parses_non_stream_json() -> None:
+    settings = Settings(
+        llm_provider="openai_compatible",
+        llm_base_url="http://llm.test/v1",
+        llm_model="test-model",
+    )
+    body = '{"choices":[{"index":0,"message":{"role":"assistant","content":"Hello there"}}]}'
+
+    def mock_stream(
+        method: str, path: str, *, json: dict | None = None, **kwargs: object
+    ) -> _MockStreamResponse:
+        return _MockStreamResponse([body], content_type="application/json")
+
+    client = OpenAICompatibleLLMClient(settings)
+    client._client.stream = mock_stream  # type: ignore[method-assign]
+
+    tokens: list[str] = []
+    async for token in client.stream_tokens(
+        [ChatMessage(role="user", content="hi")],
+        max_tokens=8,
+        temperature=0.0,
+    ):
+        tokens.append(token)
+
+    assert tokens == ["Hello there"]
 
 
 @pytest.mark.asyncio

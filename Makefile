@@ -1,6 +1,6 @@
 # ProCharacters 2.0 - practical make targets for verification
 
-.PHONY: help install run test demo verify-all verify-empire verify-forge verify-theater verify-orchestration verify-lounge verify-revenue verify-character verify-live verify-scale verify-empire-complete verify-innovation docker-build docker-up docker-down clean
+.PHONY: help install run test demo verify-all verify-empire verify-forge verify-http verify-theater verify-orchestration verify-lounge verify-revenue verify-character verify-live verify-scale verify-empire-complete verify-innovation docker-build docker-up docker-down clean
 
 help:
 	@echo "ProCharacters 2.0 make targets:"
@@ -11,7 +11,8 @@ help:
 	@echo "  make demo-fast      Demo without aiortc signaling"
 	@echo "  make verify-all     Run pytest + demo smoke (PHASE 5 VERIFY OK)"
 	@echo "  make verify-empire  Phase 11: pytest + live/ready probes"
-	@echo "  make verify-forge  Phase 12: pytest + provider forge smoke"
+	@echo "  make verify-forge  Phase 12: pytest + mock forge + local HTTP contract path"
+	@echo "  make verify-http   Local contract backend only (mock→http, no RunPod)"
 	@echo "  make verify-theater Phase 13: pytest + agent theater dispatch"
 	@echo "  make verify-orchestration Phase 14: pytest + orchestration chain smoke"
 	@echo "  make verify-lounge       Phase 15: pytest + agent lounge API"
@@ -49,7 +50,10 @@ verify-empire:
 	python scripts/verify_empire.py --start-server --skip-demo
 
 verify-forge:
-	python scripts/verify_forge.py --start-server
+	python scripts/verify_forge.py --start-server --http
+
+verify-http:
+	python scripts/verify_forge.py --start-server --http-only
 
 verify-theater:
 	python scripts/verify_theater.py --start-server

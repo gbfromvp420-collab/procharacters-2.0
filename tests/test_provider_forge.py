@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.main import create_app
-from app.services.providers.contracts import is_placeholder_endpoint
+from app.services.providers.contracts import is_local_contract_endpoint, is_placeholder_endpoint
 from app.services.providers.forge import ProviderContractForge
 from app.services.providers.probe import ProviderProbeService
 
@@ -60,6 +60,9 @@ async def test_forge_flags_placeholder_http_endpoint(mock_settings: Settings) ->
 def test_placeholder_endpoint_detection() -> None:
     assert is_placeholder_endpoint("https://your-runpod-tts-endpoint") is True
     assert is_placeholder_endpoint("http://localhost:8002") is False
+    assert is_placeholder_endpoint("https://abc123-8000.proxy.runpod.net/v1") is False
+    assert is_local_contract_endpoint("http://127.0.0.1:8010/v1") is True
+    assert is_local_contract_endpoint("https://abc123-8000.proxy.runpod.net/v1") is False
 
 
 def test_providers_forge_api() -> None:

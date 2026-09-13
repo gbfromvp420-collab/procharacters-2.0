@@ -165,12 +165,14 @@ class InnovationLanes:
             )
 
         steps = [
+            "Prove HTTP clients locally (no keys): make verify-forge",
+            "Optional local wire: python -m app.services.providers.contract_backend --port 8010",
             "Copy .env.example → .env on your deploy machine",
             "Set LLM_PROVIDER=openai_compatible + LLM_BASE_URL + LLM_API_KEY",
             "Set TTS_PROVIDER=http + TTS_BASE_URL",
             "Set VIDEO_PROVIDER=http + VIDEO_BASE_URL",
-            "Restart server · GET /api/v1/providers/status",
-            "POST /api/v1/providers/forge/smoke · make verify-forge",
+            "Or paste three real proxy URLs in Innovation · Wire (no invented URLs)",
+            "GET /api/v1/providers/status · POST /api/v1/providers/forge/smoke",
             "Connect in UI · Send — real pipeline performs",
         ]
 

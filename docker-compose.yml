@@ -1,3 +1,6 @@
+# Default env_file is mock-only (.env.example). For HTTP providers, copy
+# .env.example → .env, point at the local contract backend or real URLs, and
+# change env_file to .env. Do not invent RunPod hostnames.
 services:
   procharacters:
     build: .
