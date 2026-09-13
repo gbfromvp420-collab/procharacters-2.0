@@ -44,6 +44,7 @@ def wiring_client(
         api_key_enabled=False,
         rate_limit_enabled=False,
         runpod_wiring_path=str(wiring_path),
+        innovation_lanes_path=str(tmp_path / "innovation_lanes.json"),
         deployment_phase=20,
         app_version="1.0.0",
     )
@@ -145,6 +146,8 @@ def test_innovation_wire_post(wiring_client: TestClient) -> None:
     assert body["wired"] is True
     assert body["readiness"]["all_ready"] is True
     assert body["pipelines_activated"] is True
+    assert body["stage1_status"] == "live"
+    assert body["stage1_source"] == "runpod"
     assert body["effective_providers"]["llm"] == "openai_compatible"
     assert body["env_snippet"] is not None
     assert "LLM_BASE_URL" in body["env_snippet"]

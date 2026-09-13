@@ -173,15 +173,20 @@ const els = {
   sovereignScaleObservability: document.getElementById("sovereignScaleObservability"),
   innovationPanel: document.getElementById("innovationPanel"),
   innovationStatus: document.getElementById("innovationStatus"),
+  innovationStage1Blocker: document.getElementById("innovationStage1Blocker"),
   innovationLaneList: document.getElementById("innovationLaneList"),
   innovationWiringStatus: document.getElementById("innovationWiringStatus"),
+  innovationHowtoList: document.getElementById("innovationHowtoList"),
+  innovationRunpodLink: document.getElementById("innovationRunpodLink"),
   innovationWireForm: document.getElementById("innovationWireForm"),
   innovationLlmUrl: document.getElementById("innovationLlmUrl"),
   innovationTtsUrl: document.getElementById("innovationTtsUrl"),
   innovationVideoUrl: document.getElementById("innovationVideoUrl"),
   innovationApiKey: document.getElementById("innovationApiKey"),
+  innovationLocalStubBtn: document.getElementById("innovationLocalStubBtn"),
   innovationWireBtn: document.getElementById("innovationWireBtn"),
   innovationSmokeBtn: document.getElementById("innovationSmokeBtn"),
+  innovationAdvanceBtn: document.getElementById("innovationAdvanceBtn"),
   innovationEnvSnippet: document.getElementById("innovationEnvSnippet"),
   companionSoulPanel: document.getElementById("companionSoulPanel"),
   companionSoulStatus: document.getElementById("companionSoulStatus"),
@@ -752,8 +757,28 @@ async function loadInnovationPanel({ quiet = false } = {}) {
     const wiring = await wiringRes.json();
     const real = realRes.ok ? await realRes.json() : null;
     els.innovationStatus.textContent =
-      `${status.active_lane_title} · wired ${wiring.readiness?.wired ? "yes" : "no"} · ` +
-      `configured ${status.configured_providers || 0}/3 · live-activate ${status.live_activate ? "on" : "off"}`;
+      `${status.active_lane_title} · stage 1 ${status.stage1_status || "in_progress"} · ` +
+      `wired ${wiring.readiness?.wired ? "yes" : "no"} · ` +
+      `configured ${status.configured_providers || 0}/3 · source ${status.stage1_source || "none"}`;
+    if (els.innovationStage1Blocker) {
+      els.innovationStage1Blocker.textContent = status.stage1_blocker || real?.stage1_blocker || "";
+    }
+    if (els.innovationHowtoList) {
+      const steps = real?.runpod_howto || [];
+      els.innovationHowtoList.innerHTML = "";
+      steps.forEach((step) => {
+        const item = document.createElement("li");
+        item.textContent = step;
+        els.innovationHowtoList.appendChild(item);
+      });
+    }
+    if (els.innovationRunpodLink && real?.runpod_console) {
+      els.innovationRunpodLink.href = real.runpod_console;
+    }
+    if (els.innovationAdvanceBtn) {
+      const ready = ["ready_local", "live", "ready_mixed"].includes(status.stage1_status);
+      els.innovationAdvanceBtn.disabled = !ready;
+    }
     if (els.innovationLaneList) {
       els.innovationLaneList.innerHTML = "";
       (lanes.lanes || []).forEach((lane) => {
@@ -818,6 +843,46 @@ async function submitInnovationWire(event) {
     showToast(`Wire failed: ${error.message || error}`, true);
   } finally {
     if (els.innovationWireBtn) els.innovationWireBtn.disabled = false;
+  }
+}
+
+async function wireLocalContractStubs() {
+  if (els.innovationLocalStubBtn) els.innovationLocalStubBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/innovation/wire/local`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `local wire ${res.status}`);
+    if (els.innovationLlmUrl && body.env_snippet) {
+      /* fields refresh from GET wiring */
+    }
+    setLog(body.message || "Local stubs wired");
+    showToast(body.pipelines_activated ? "Stage 1 local stubs live" : body.message || "Local stubs saved");
+    await loadInnovationPanel({ quiet: true });
+  } catch (error) {
+    setLog(`Local stubs failed: ${error.message || error}`);
+    showToast(`Local stubs failed: ${error.message || error}`, true);
+  } finally {
+    if (els.innovationLocalStubBtn) els.innovationLocalStubBtn.disabled = false;
+  }
+}
+
+async function advanceInnovationLane() {
+  if (els.innovationAdvanceBtn) els.innovationAdvanceBtn.disabled = true;
+  try {
+    const res = await fetch(`${API}/workforce/innovation/advance`, { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || `advance ${res.status}`);
+    setLog(body.message || "Advanced");
+    showToast(body.message || "Advanced to next lane");
+    await loadInnovationPanel({ quiet: true });
+    if (body.active_lane_id === "companion_soul") {
+      openEmpirePanel("companionSoulPanel");
+    }
+  } catch (error) {
+    setLog(`Advance failed: ${error.message || error}`);
+    showToast(`Advance failed: ${error.message || error}`, true);
+  } finally {
+    if (els.innovationAdvanceBtn) els.innovationAdvanceBtn.disabled = false;
   }
 }
 
@@ -4200,6 +4265,16 @@ if (els.innovationPanel) {
 if (els.innovationWireForm) {
   els.innovationWireForm.addEventListener("submit", (event) => {
     submitInnovationWire(event).catch(() => {});
+  });
+}
+if (els.innovationLocalStubBtn) {
+  els.innovationLocalStubBtn.addEventListener("click", () => {
+    wireLocalContractStubs().catch(() => {});
+  });
+}
+if (els.innovationAdvanceBtn) {
+  els.innovationAdvanceBtn.addEventListener("click", () => {
+    advanceInnovationLane().catch(() => {});
   });
 }
 if (els.innovationSmokeBtn) {

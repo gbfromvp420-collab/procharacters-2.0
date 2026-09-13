@@ -859,6 +859,11 @@ class RealProviderReadinessResponse(BaseModel):
     activation_steps: list[str]
     forge_status_url: str
     forge_smoke_url: str
+    stage1_status: str = "in_progress"
+    stage1_source: str = "none"
+    stage1_blocker: str = ""
+    runpod_howto: list[str] = Field(default_factory=list)
+    runpod_console: str = "https://www.runpod.io/console/pods"
 
 
 class RunPodWiringReadinessResponse(BaseModel):
@@ -904,6 +909,16 @@ class RunPodWireResponse(BaseModel):
     message: str
     pipelines_activated: bool = False
     effective_providers: dict[str, str] = Field(default_factory=dict)
+    stage1_status: str = "in_progress"
+    stage1_source: str = "none"
+
+
+class InnovationAdvanceResponse(BaseModel):
+    previous_lane_id: str
+    active_lane_id: str
+    active_lane_title: str
+    stage1_status: str
+    message: str
 
 
 class SoulStageCatalogItem(BaseModel):
@@ -1004,6 +1019,9 @@ class InnovationResponse(BaseModel):
     live_lane_status: str = "in_progress"
     live_activate: bool = True
     schema_path: str
+    stage1_status: str = "in_progress"
+    stage1_source: str = "none"
+    stage1_blocker: str = ""
 
 
 class LaunchReadinessItem(BaseModel):

@@ -77,6 +77,7 @@ from app.models.workforce import (
     InnovationLaneListResponse,
     NsmPipelineResponse,
     NsmPipelineStepResponse,
+    InnovationAdvanceResponse,
     InnovationLaneResponse,
     InnovationResponse,
     RealProviderReadinessItem,
@@ -1302,6 +1303,11 @@ async def innovation_real_providers(request: Request) -> RealProviderReadinessRe
         activation_steps=raw["activation_steps"],
         forge_status_url=raw["forge_status_url"],
         forge_smoke_url=raw["forge_smoke_url"],
+        stage1_status=str(raw.get("stage1_status", "in_progress")),
+        stage1_source=str(raw.get("stage1_source", "none")),
+        stage1_blocker=str(raw.get("stage1_blocker", "")),
+        runpod_howto=list(raw.get("runpod_howto") or []),
+        runpod_console=str(raw.get("runpod_console", "https://www.runpod.io/console/pods")),
     )
 
 
@@ -1395,6 +1401,14 @@ async def innovation_wire_runpod(
         if not readiness.get("video_ready"):
             missing.append("Video URL")
         message = f"Partial wire — still need: {', '.join(missing)}"
+    stage1_status = request.app.state.innovation_lanes.sync_real_lane(
+        settings=fresh, wired=wired
+    )
+    stage1_source = "none"
+    if wired:
+        from app.services.providers.local_stubs import detect_stage1_source
+
+        stage1_source = detect_stage1_source(settings=fresh, wired=True)
     return RunPodWireResponse(
         wired=wired,
         readiness=RunPodWiringReadinessResponse(**readiness),
@@ -1402,6 +1416,115 @@ async def innovation_wire_runpod(
         message=message,
         pipelines_activated=pipelines_activated,
         effective_providers=effective_providers,
+        stage1_status=stage1_status,
+        stage1_source=stage1_source,
+    )
+
+
+@router.post(
+    "/innovation/wire/local",
+    response_model=RunPodWireResponse,
+    summary="Stage 1 — wire in-process LLM/TTS/Video contract stubs (no RunPod pods)",
+)
+async def innovation_wire_local_stubs(request: Request) -> RunPodWireResponse:
+    from app.core.config import get_settings
+    from app.core.runpod_wiring import (
+        apply_runpod_wiring,
+        build_wiring_report,
+        update_wiring_urls,
+    )
+    from app.services.providers.local_stubs import detect_stage1_source, local_stub_urls
+
+    settings = request.app.state.settings
+    urls = local_stub_urls(request)
+    update_wiring_urls(
+        path=settings.runpod_wiring_path,
+        llm_base_url=urls["llm_base_url"],
+        tts_base_url=urls["tts_base_url"],
+        video_base_url=urls["video_base_url"],
+        enabled=True,
+    )
+    cache_clear = getattr(get_settings, "cache_clear", None)
+    if callable(cache_clear):
+        cache_clear()
+    fresh = apply_runpod_wiring(settings)
+    request.app.state.settings = fresh
+    report = build_wiring_report(fresh)
+    readiness = report["readiness"]
+    wired = bool(readiness.get("wired"))
+    pipelines_activated = False
+    effective_providers: dict[str, str] = {}
+    if wired:
+        from app.services.providers.activate import activate_provider_stack
+
+        stack = await activate_provider_stack(request.app, fresh)
+        pipelines_activated = bool(stack.get("activated"))
+        effective_providers = {
+            "llm": str(stack.get("llm", "")),
+            "tts": str(stack.get("tts", "")),
+            "video": str(stack.get("video", "")),
+        }
+    stage1_status = request.app.state.innovation_lanes.sync_real_lane(
+        settings=fresh, wired=wired
+    )
+    stage1_source = detect_stage1_source(settings=fresh, wired=wired)
+    message = (
+        "Stage 1 local stubs wired — HTTP contracts live, no RunPod required. "
+        "POST /api/v1/providers/forge/smoke then Advance to Soul."
+        if wired
+        else "Local stub URLs saved but not enabled."
+    )
+    return RunPodWireResponse(
+        wired=wired,
+        readiness=RunPodWiringReadinessResponse(**readiness),
+        env_snippet=report.get("env_snippet"),
+        message=message,
+        pipelines_activated=pipelines_activated,
+        effective_providers=effective_providers,
+        stage1_status=stage1_status,
+        stage1_source=stage1_source,
+    )
+
+
+@router.post(
+    "/innovation/advance",
+    response_model=InnovationAdvanceResponse,
+    summary="Advance the active innovation lane after Stage 1 is ready_local or live",
+)
+async def innovation_advance_lane(request: Request) -> InnovationAdvanceResponse:
+    innovation = request.app.state.innovation_lanes
+    settings = request.app.state.settings
+    real = innovation.build_real_provider_readiness(settings=settings)
+    stage1 = str(real.get("stage1_status", "in_progress"))
+    if stage1 not in {"ready_local", "live", "ready_mixed"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Stage 1 is still blocked. "
+                + str(real.get("stage1_blocker", "Wire local stubs or RunPod URLs first."))
+            ),
+        )
+    current = innovation.get_active_lane() or {}
+    previous_id = str(current.get("id", "real_providers"))
+    if previous_id != "real_providers":
+        next_id = innovation.next_lane_id(previous_id)
+    else:
+        next_id = "companion_soul"
+    if not next_id:
+        return InnovationAdvanceResponse(
+            previous_lane_id=previous_id,
+            active_lane_id=previous_id,
+            active_lane_title=str(current.get("title", "")),
+            stage1_status=stage1,
+            message="Already on the last innovation lane.",
+        )
+    active = innovation.set_active_lane(next_id)
+    return InnovationAdvanceResponse(
+        previous_lane_id=previous_id,
+        active_lane_id=str(active.get("id") if active else next_id),
+        active_lane_title=str(active.get("title") if active else next_id),
+        stage1_status=stage1,
+        message=f"Active lane is now {active.get('title') if active else next_id}.",
     )
 
 
