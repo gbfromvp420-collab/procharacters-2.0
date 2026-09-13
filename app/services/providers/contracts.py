@@ -74,8 +74,13 @@ PROVIDER_CONTRACTS: dict[str, ContractSpecDict] = {
 
 _PLACEHOLDER_MARKERS = (
     "your-runpod",
-    "your-",
+    "your-pod",
+    "your-llm",
+    "your-tts",
+    "your-video",
+    "your-musetalk",
     "example.com",
+    "example.org",
     "changeme",
     "placeholder",
 )
@@ -86,3 +91,12 @@ def is_placeholder_endpoint(endpoint: str) -> bool:
     if not lowered or lowered in {"http://", "https://"}:
         return True
     return any(marker in lowered for marker in _PLACEHOLDER_MARKERS)
+
+
+def is_local_contract_endpoint(endpoint: str) -> bool:
+    """True for loopback URLs used by the local contract backend."""
+    lowered = endpoint.lower().strip()
+    return any(
+        token in lowered
+        for token in ("127.0.0.1", "localhost", "[::1]", "0.0.0.0")
+    )

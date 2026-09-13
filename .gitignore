@@ -22,3 +22,4 @@ htmlcov/
 *.log
 data/*
 !data/kgc_continuity_journal.md
+!data/runpod_wiring.example.json

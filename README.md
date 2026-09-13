@@ -97,20 +97,38 @@ RunPod-style workers should match the payload/response shapes above.
 
 ### Provider Forge (Phase 12)
 
-Verify contracts against mock or live backends:
+Verify contracts against mock or HTTP backends. **Leaving mock does not require RunPod.**
+The local contract backend speaks the same LLM / TTS / MuseTalk shapes the http clients
+send, so `make verify-forge` proves the mock → http path on loopback.
+
+```bash
+# Full Phase 12 gate: pytest + mock smoke + local HTTP contract path
+make verify-forge
+
+# HTTP-only (starts contract backend, wires openai_compatible/http/http, forge smoke)
+make verify-http
+
+# Manual local HTTP (no keys)
+python -m app.services.providers.contract_backend --port 8010
+# in another shell — point .env at 127.0.0.1:8010 (see .env.example) then:
+curl http://localhost:8000/api/v1/providers/forge
+curl -X POST http://localhost:8000/api/v1/providers/forge/smoke
+python scripts/verify_providers.py --all
+
+# Innovation · Wire can paste the same loopback URLs (or later, real RunPod proxies)
+python scripts/wire_runpod.py --llm http://127.0.0.1:8010/v1 \
+  --tts http://127.0.0.1:8010 --video http://127.0.0.1:8010 --enable
+```
+
+`make verify-forge` does **not** claim a live RunPod. Human-owned steps remain:
+paste three real Connect proxy URLs + optional API keys. Do not invent them.
 
 ```bash
 # API report (probe + contract spec; UI header uses this)
 curl http://localhost:8000/api/v1/providers/forge
 
-# Live smoke — minimal real requests to configured remote providers
+# Live smoke — mock clients, or real HTTP if you switched providers
 curl -X POST http://localhost:8000/api/v1/providers/forge/smoke
-
-# CLI contract smoke (mock default, or set LLM/TTS/VIDEO_PROVIDER=http + URLs)
-python scripts/verify_providers.py --all
-
-# Full Phase 12 gate
-make verify-forge
 ```
 
 ### Innovation Lanes (post-v1.0)
@@ -118,10 +136,13 @@ make verify-forge
 Lane 1 live-activates existing RunPod proxy URLs without a server restart. Lane 2 is Companion Soul — named memories, intimacy stages, and check-in. Lane 3 rolls up character earnings. Lane 4 opens Assist headline night and the public launch board:
 
 ```bash
-# Lane 1 — paste URLs (or use the Innovation · Wire panel)
+# Lane 1 — paste YOUR URLs (or use the Innovation · Wire panel).
+# Local proof first: contract backend on :8010 (see Provider Forge above).
 curl -X POST http://localhost:8000/api/v1/workforce/innovation/wire \
   -H 'Content-Type: application/json' \
-  -d '{"llm_base_url":"https://YOUR-POD-8000.proxy.runpod.net/v1","tts_base_url":"https://YOUR-POD-8002.proxy.runpod.net","video_base_url":"https://YOUR-POD-8003.proxy.runpod.net","enabled":true}'
+  -d '{"llm_base_url":"http://127.0.0.1:8010/v1","tts_base_url":"http://127.0.0.1:8010","video_base_url":"http://127.0.0.1:8010","enabled":true}'
+
+# When you have real RunPod Connect proxies, paste those instead — do not invent URLs.
 
 curl http://localhost:8000/api/v1/workforce/innovation/wiring
 curl -X POST http://localhost:8000/api/v1/providers/forge/smoke
@@ -348,6 +369,7 @@ make docker-build
 make docker-up
 ```
 
+- `docker-compose.yml` loads `.env.example` (mock providers). Copy to `.env` and point at the local contract backend or your real URLs before `make docker-up` if you want HTTP mode.
 - Image runs as non-root `appuser` with persistent volume at `/app/data`
 - **Liveness**: `GET /api/v1/health/live` — process is up
 - **Readiness**: `GET /api/v1/health/ready` — persistence writable + provider gate satisfied (503 when not ready)

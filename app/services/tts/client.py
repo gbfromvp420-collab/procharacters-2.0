@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -151,23 +152,11 @@ class HttpTTSClient(TTSClient):
                 response = await self._client.post("/synthesize", json=payload)
                 response.raise_for_status()
 
-                content_type = response.headers.get("content-type", "")
-                if "application/json" in content_type:
-                    data = response.json()
-                    if not isinstance(data, dict) or "audio_b64" not in data:
-                        raise ValueError("TTS JSON response missing audio_b64")
-                    b64 = data["audio_b64"]
-                    if not isinstance(b64, str) or not b64:
-                        raise ValueError("Invalid audio_b64 in TTS response")
-                    pcm_bytes = base64.b64decode(b64)
-                    sample_rate = int(data.get("sample_rate", self._settings.tts_sample_rate))
-                    channels = int(data.get("channels", self._settings.tts_channels))
-                else:
-                    pcm_bytes = response.content
-                    if not pcm_bytes:
-                        raise ValueError("TTS raw response contained zero bytes")
-                    sample_rate = self._settings.tts_sample_rate
-                    channels = self._settings.tts_channels
+                pcm_bytes, sample_rate, channels = _parse_tts_response(
+                    response,
+                    default_sample_rate=self._settings.tts_sample_rate,
+                    default_channels=self._settings.tts_channels,
+                )
 
                 # Basic validation of PCM length
                 if len(pcm_bytes) % (2 * channels) != 0:
@@ -200,6 +189,37 @@ class HttpTTSClient(TTSClient):
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+
+def _parse_tts_response(
+    response: httpx.Response,
+    *,
+    default_sample_rate: int,
+    default_channels: int,
+) -> tuple[bytes, int, int]:
+    content_type = (response.headers.get("content-type") or "").lower()
+    body = response.content
+    looks_json = "application/json" in content_type or body.lstrip().startswith(b"{")
+    if looks_json:
+        try:
+            data = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            if "application/json" in content_type:
+                raise ValueError("TTS JSON response was not valid JSON") from exc
+            data = None
+        if isinstance(data, dict):
+            if "audio_b64" not in data:
+                raise ValueError("TTS JSON response missing audio_b64")
+            b64 = data["audio_b64"]
+            if not isinstance(b64, str) or not b64:
+                raise ValueError("Invalid audio_b64 in TTS response")
+            pcm_bytes = base64.b64decode(b64)
+            sample_rate = int(data.get("sample_rate", default_sample_rate))
+            channels = int(data.get("channels", default_channels))
+            return pcm_bytes, sample_rate, channels
+    if not body:
+        raise ValueError("TTS raw response contained zero bytes")
+    return body, default_sample_rate, default_channels
 
 
 def create_tts_client(settings: Settings) -> TTSClient:

@@ -1,0 +1,23 @@
+{
+  "enabled": false,
+  "pod_label": "example — replace with your own Connect proxy URLs",
+  "notes": "Do not invent URLs. Paste real RunPod Connect proxies, or point at the local contract backend (python -m app.services.providers.contract_backend).",
+  "llm": {
+    "provider": "openai_compatible",
+    "base_url": "http://127.0.0.1:8010/v1",
+    "api_key": "",
+    "model": "meta-llama/Meta-Llama-3-8B-Instruct"
+  },
+  "tts": {
+    "provider": "http",
+    "base_url": "http://127.0.0.1:8010",
+    "api_key": ""
+  },
+  "video": {
+    "provider": "http",
+    "base_url": "http://127.0.0.1:8010",
+    "api_key": ""
+  },
+  "provider_gate_enabled": true,
+  "provider_gate_allow_degraded": true
+}

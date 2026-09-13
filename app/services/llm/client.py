@@ -111,37 +111,37 @@ class OpenAICompatibleLLMClient(LLMClient):
                     json=payload,
                 ) as response:
                     response.raise_for_status()
+                    content_type = (response.headers.get("content-type") or "").lower()
+                    # Proxies that ignore stream=true often return a single JSON body.
+                    if "text/event-stream" not in content_type:
+                        raw = (await response.aread()).decode("utf-8", errors="replace")
+                        tokens = _tokens_from_complete_body(raw)
+                        if not tokens:
+                            raise ValueError("LLM non-stream response contained no choices content")
+                        for token in tokens:
+                            yield token
+                        return
                     async for line in response.aiter_lines():
-                        if not line or not line.startswith("data:"):
+                        if not line:
+                            continue
+                        if not line.startswith("data:"):
+                            # Bare JSON line from a non-compliant proxy
+                            if line.lstrip().startswith("{"):
+                                for token in _tokens_from_completion_payload(_safe_json(line)):
+                                    yield token
                             continue
 
                         data = line.removeprefix("data:").strip()
                         if data == "[DONE]":
                             return  # end of stream
 
-                        try:
-                            chunk = json.loads(data)
-                        except json.JSONDecodeError:
+                        chunk = _safe_json(data)
+                        if chunk is None:
                             logger.warning("Skipping malformed LLM stream chunk: %s", data[:120])
                             continue
 
-                        # Validate shape more strictly
-                        choices = chunk.get("choices") or []
-                        if not isinstance(choices, list) or not choices:
-                            # Some backends send usage-only or empty chunks; ignore
-                            continue
-
-                        choice = choices[0]
-                        if not isinstance(choice, dict):
-                            continue
-
-                        delta = choice.get("delta") or {}
-                        if not isinstance(delta, dict):
-                            continue
-
-                        content = delta.get("content")
-                        if isinstance(content, str) and content:
-                            yield content
+                        for token in _tokens_from_completion_payload(chunk):
+                            yield token
                 return  # successful completion
             except (httpx.ConnectError, httpx.TimeoutException, httpx.ReadError) as exc:
                 last_exc = exc
@@ -233,6 +233,59 @@ class MockLLMClient(LLMClient):
             if tok in {".", "!", "?", ":"}:
                 delay += 0.12  # pause at sentence end
             await asyncio.sleep(max(0.005, delay))
+
+
+def _safe_json(raw: str) -> dict | None:
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _tokens_from_completion_payload(payload: dict | None) -> list[str]:
+    if not payload:
+        return []
+    choices = payload.get("choices") or []
+    if not isinstance(choices, list) or not choices:
+        return []
+    tokens: list[str] = []
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        delta = choice.get("delta") or {}
+        if isinstance(delta, dict):
+            content = delta.get("content")
+            if isinstance(content, str) and content:
+                tokens.append(content)
+                continue
+        message = choice.get("message") or {}
+        if isinstance(message, dict):
+            content = message.get("content")
+            if isinstance(content, str) and content:
+                tokens.append(content)
+                continue
+        text = choice.get("text")
+        if isinstance(text, str) and text:
+            tokens.append(text)
+    return tokens
+
+
+def _tokens_from_complete_body(raw: str) -> list[str]:
+    stripped = raw.strip()
+    if not stripped:
+        return []
+    if stripped.startswith("data:"):
+        tokens: list[str] = []
+        for line in stripped.splitlines():
+            if not line.startswith("data:"):
+                continue
+            data = line.removeprefix("data:").strip()
+            if data == "[DONE]":
+                break
+            tokens.extend(_tokens_from_completion_payload(_safe_json(data)))
+        return tokens
+    return _tokens_from_completion_payload(_safe_json(stripped))
 
 
 def create_llm_client(settings: Settings) -> LLMClient:
