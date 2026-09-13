@@ -33,6 +33,7 @@ def innovation_client(
         api_key_enabled=False,
         rate_limit_enabled=False,
         innovation_lanes_path=str(tmp_path / "innovation_lanes.json"),
+        runpod_wiring_path=str(tmp_path / "runpod_wiring.json"),
         deployment_phase=20,
         app_version="1.0.0",
     )
@@ -52,6 +53,8 @@ def test_innovation_status(innovation_client: TestClient) -> None:
     assert body["lanes_total"] == 4
     assert body["real_providers_ready"] is False
     assert body["live_lane_status"] == "in_progress"
+    assert body["stage1_status"] == "in_progress"
+    assert "Stage 1" in body["stage1_blocker"]
 
 
 def test_innovation_lanes_list(innovation_client: TestClient) -> None:
@@ -80,6 +83,9 @@ def test_real_provider_readiness_mock(innovation_client: TestClient) -> None:
     assert len(body["env_checklist"]) >= 6
     assert len(body["activation_steps"]) >= 5
     assert body["providers"][0]["next_step"]
+    assert body["stage1_status"] == "in_progress"
+    assert body["runpod_console"].endswith("/console/pods")
+    assert any("runpod.io" in step for step in body["runpod_howto"])
 
 
 def test_innovation_service_all_real_ready(tmp_path: Path) -> None:
@@ -95,3 +101,5 @@ def test_innovation_service_all_real_ready(tmp_path: Path) -> None:
     report = innovation.build_real_provider_readiness(settings=settings)
     assert report["all_real_ready"] is True
     assert report["configured_providers"] == 3
+    assert report["stage1_status"] == "live"
+    assert report["stage1_source"] == "runpod"

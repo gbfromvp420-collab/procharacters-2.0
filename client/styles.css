@@ -995,6 +995,32 @@ body.has-lanes-dock .toast {
   margin-top: 8px;
 }
 
+.innovation-stage1-blocker,
+.innovation-howto {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(142, 197, 255, 0.08);
+  border: 1px solid rgba(142, 197, 255, 0.22);
+  color: #d7ebff;
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.innovation-howto summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #8ec5ff;
+}
+
+.innovation-howto-list {
+  margin: 6px 0 8px;
+  padding-left: 18px;
+}
+
+.innovation-runpod-link {
+  color: #8ec5ff;
+}
+
 .innovation-status,
 .companion-soul-status,
 .innovation-wiring-status,

@@ -43,9 +43,10 @@ def _probe_innovation() -> int:
             f"ready={body.get('real_providers_ready')} "
             f"configured={body.get('configured_providers')}/3"
         )
-        if body.get("active_lane_id") != "real_providers":
-            print("Expected active_lane_id=real_providers")
+        if body.get("active_lane_id") not in {"real_providers", "companion_soul"}:
+            print("Expected active lane real_providers or companion_soul")
             return 1
+        print(f"  stage1={body.get('stage1_status')} blocker={body.get('stage1_blocker')}")
 
         lanes = client.get(f"{BASE}/workforce/innovation/lanes")
         if lanes.status_code != 200 or lanes.json().get("count") != 4:
@@ -56,7 +57,11 @@ def _probe_innovation() -> int:
         if real.status_code != 200:
             print(f"/workforce/innovation/real failed: {real.status_code}")
             return 1
-        print(f"  providers={len(real.json().get('providers', []))} checklist items")
+        real_body = real.json()
+        print(f"  providers={len(real_body.get('providers', []))} checklist items")
+        if not real_body.get("runpod_howto"):
+            print("Expected RunPod howto on /innovation/real")
+            return 1
 
         wiring = client.get(f"{BASE}/workforce/innovation/wiring")
         if wiring.status_code != 200:
@@ -64,6 +69,26 @@ def _probe_innovation() -> int:
             return 1
         w = wiring.json().get("readiness", {})
         print(f"  wiring wired={w.get('wired')} ready={w.get('all_ready')}")
+
+        stubs = client.get(f"{BASE}/providers/local")
+        if stubs.status_code != 200 or not stubs.json().get("llm_base_url"):
+            print("Local contract stubs are missing")
+            return 1
+
+        if not w.get("wired"):
+            local_wire = client.post(f"{BASE}/workforce/innovation/wire/local")
+            if local_wire.status_code != 200 or not local_wire.json().get("wired"):
+                print(f"wire/local failed: {local_wire.status_code}")
+                return 1
+            print(f"  local stubs wired stage1={local_wire.json().get('stage1_status')}")
+            smoke = client.post(f"{BASE}/providers/forge/smoke")
+            if smoke.status_code != 200:
+                print(f"forge smoke after local wire failed: {smoke.status_code}")
+                return 1
+            if not smoke.json().get("forge_ok"):
+                print(f"forge smoke not ok: {smoke.json()}")
+                return 1
+            print("  forge smoke OK against local stubs")
 
         soul = client.get(f"{BASE}/workforce/innovation/soul")
         if soul.status_code != 200:

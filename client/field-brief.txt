@@ -8,11 +8,17 @@ SAVE THIS FILE on your phone (download, email to self, Files app).
 INNOVATION — ACTIVE NOW
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-LANE 1 · REAL (wire + live activate — no restart)
+LANE 1 · REAL (Stage 1 — local stubs or RunPod)
+  Finish Stage 1 WITHOUT pods:
+  · UI: Innovation · Wire → Use local contract stubs → Forge smoke
+  · POST /api/v1/workforce/innovation/wire/local
+  · Then POST /api/v1/workforce/innovation/advance  (opens Soul)
+
   If you already have pods: paste 3 Connect proxy URLs
   1 · LLM (vLLM) — ends with /v1
   2 · TTS — POST /synthesize
   3 · Video — POST /generate
+  Get URLs: https://www.runpod.io/console/pods → Connect → HTTP Services
 
   WIRE (pick one):
   · UI: open Innovation · Wire → paste URLs → Wire + live activate

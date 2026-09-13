@@ -95,6 +95,30 @@ See detailed docstrings in:
 
 RunPod-style workers should match the payload/response shapes above.
 
+### Stage 1 — Real Provider Live (Innovation Lane 1)
+
+Phases 1–20 (Crown Completion) are already in this repo. The **current development stage** is post-v1.0 **Innovation Lane 1**: switch the mock LLM → TTS → Video pipe onto real HTTP contracts.
+
+That stage was stuck on RunPod Connect proxy URLs (owner-only). You can finish Stage 1 **without pods**:
+
+```bash
+# after the server is up
+curl -X POST http://localhost:8000/api/v1/workforce/innovation/wire/local
+curl -X POST http://localhost:8000/api/v1/providers/forge/smoke
+curl -X POST http://localhost:8000/api/v1/workforce/innovation/advance
+```
+
+Or in the UI: **Innovation · Wire → Use local contract stubs → Forge smoke → Advance to next lane**.
+
+Local stubs speak the same contracts as RunPod (`/v1/chat/completions`, `/synthesize`, `/generate`) from this process. When you have pods:
+
+1. Open [RunPod console → Pods](https://www.runpod.io/console/pods)
+2. Connect → HTTP Services on each pod
+3. Paste the three proxy URLs (LLM must end with `/v1`) into Innovation · Wire
+4. Do not paste API keys into chat
+
+Owner-only remaining: a RunPod account + three running workers for a production smoke. Stripe / real payouts are Stage 2+ (Lane 3 stubs).
+
 ### Provider Forge (Phase 12)
 
 Verify contracts against mock or live backends:

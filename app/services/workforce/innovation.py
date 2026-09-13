@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 from pathlib import Path
 from typing import Any
 
 from app.services.providers.contracts import is_placeholder_endpoint
+from app.services.providers.local_stubs import (
+    detect_stage1_source,
+    runpod_howto,
+    stage1_blocker,
+    stage1_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +71,10 @@ _DEFAULT_SCHEMA: dict[str, Any] = {
             "rank": 1,
             "label": "Real",
             "title": "Real Provider Live",
-            "summary": "RunPod LLM → TTS → MuseTalk — mock was the forge, real is the stage.",
+            "summary": (
+                "HTTP LLM → TTS → MuseTalk contracts — local stubs unblock Stage 1; "
+                "RunPod Connect URLs go live."
+            ),
             "status": "in_progress",
         },
         {
@@ -112,10 +122,50 @@ class InnovationLanes:
                     return raw
             except (OSError, json.JSONDecodeError) as exc:
                 logger.warning("Failed to load innovation lanes %s: %s", path, exc)
-        return dict(_DEFAULT_SCHEMA)
+        return copy.deepcopy(_DEFAULT_SCHEMA)
+
+    def _save_schema(self) -> None:
+        path = Path(self._schema_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(self._schema, indent=2), encoding="utf-8")
+
+    def set_lane_status(self, lane_id: str, status: str) -> None:
+        lanes = self._schema.setdefault("lanes", [])
+        if not isinstance(lanes, list):
+            return
+        for lane in lanes:
+            if isinstance(lane, dict) and lane.get("id") == lane_id:
+                lane["status"] = status
+                break
+        self._save_schema()
+
+    def set_active_lane(self, lane_id: str) -> dict[str, Any] | None:
+        known = {lane.get("id") for lane in self.list_lanes()}
+        if lane_id not in known:
+            return None
+        self._schema["active_lane"] = lane_id
+        self._save_schema()
+        return self.get_active_lane()
+
+    def next_lane_id(self, current_id: str) -> str | None:
+        ordered = self.list_lanes()
+        ids = [str(lane.get("id")) for lane in ordered]
+        try:
+            index = ids.index(current_id)
+        except ValueError:
+            return ids[0] if ids else None
+        if index + 1 >= len(ids):
+            return None
+        return ids[index + 1]
+
+    def sync_real_lane(self, *, settings: Any, wired: bool = False) -> str:
+        real = self.build_real_provider_readiness(settings=settings, wired=wired)
+        status = str(real["stage1_status"])
+        self.set_lane_status("real_providers", status)
+        return status
 
     def get_schema(self) -> dict[str, Any]:
-        return dict(self._schema)
+        return copy.deepcopy(self._schema)
 
     def list_lanes(self) -> list[dict[str, Any]]:
         lanes = self._schema.get("lanes", [])
@@ -133,7 +183,9 @@ class InnovationLanes:
                 return lane
         return self.list_lanes()[0] if self.list_lanes() else None
 
-    def build_real_provider_readiness(self, *, settings: Any) -> dict[str, Any]:
+    def build_real_provider_readiness(
+        self, *, settings: Any, wired: bool = False
+    ) -> dict[str, Any]:
         providers: list[dict[str, Any]] = []
         remote_count = 0
         configured_count = 0
@@ -164,14 +216,15 @@ class InnovationLanes:
                 }
             )
 
+        ready = configured_count == 3
+        source = detect_stage1_source(settings=settings, wired=wired and ready)
+        status = stage1_status(ready=ready, source=source)
         steps = [
-            "Copy .env.example → .env on your deploy machine",
-            "Set LLM_PROVIDER=openai_compatible + LLM_BASE_URL + LLM_API_KEY",
-            "Set TTS_PROVIDER=http + TTS_BASE_URL",
-            "Set VIDEO_PROVIDER=http + VIDEO_BASE_URL",
-            "Restart server · GET /api/v1/providers/status",
-            "POST /api/v1/providers/forge/smoke · make verify-forge",
-            "Connect in UI · Send — real pipeline performs",
+            "POST /api/v1/workforce/innovation/wire/local — finish Stage 1 without pods",
+            "Or paste RunPod Connect URLs into Innovation · Wire",
+            "POST /api/v1/providers/forge/smoke",
+            "POST /api/v1/workforce/innovation/advance — move active lane to Soul",
+            "When pods exist: swap local stub URLs for RunPod proxies (no restart)",
         ]
 
         return {
@@ -180,29 +233,40 @@ class InnovationLanes:
             "providers": providers,
             "remote_providers": remote_count,
             "configured_providers": configured_count,
-            "all_real_ready": configured_count == 3,
+            "all_real_ready": ready,
             "provider_gate_enabled": bool(getattr(settings, "provider_gate_enabled", False)),
             "env_checklist": list(_RUNPOD_ENV_CHECKLIST),
             "activation_steps": steps,
             "forge_status_url": "/api/v1/providers/status",
             "forge_smoke_url": "/api/v1/providers/forge/smoke",
+            "stage1_status": status,
+            "stage1_source": source,
+            "stage1_blocker": stage1_blocker(
+                ready=ready, source=source, configured=configured_count
+            ),
+            "runpod_howto": runpod_howto(),
+            "runpod_console": "https://www.runpod.io/console/pods",
         }
 
     @staticmethod
     def _next_step_for_provider(name: str, mode: str, placeholder: bool) -> str:
         if name == "llm" and mode != "openai_compatible":
-            return "Set LLM_PROVIDER=openai_compatible in .env"
+            return "POST /workforce/innovation/wire/local or set LLM_PROVIDER=openai_compatible"
         if name == "tts" and mode != "http":
-            return "Set TTS_PROVIDER=http in .env"
+            return "POST /workforce/innovation/wire/local or set TTS_PROVIDER=http"
         if name == "video" and mode != "http":
-            return "Set VIDEO_PROVIDER=http in .env"
+            return "POST /workforce/innovation/wire/local or set VIDEO_PROVIDER=http"
         if placeholder:
-            return f"Replace {name.upper()}_BASE_URL placeholder with real RunPod URL"
+            return (
+                f"Replace {name.upper()}_BASE_URL with local stubs "
+                "(/api/v1/providers/local) or a RunPod Connect URL"
+            )
         return "Run POST /api/v1/providers/forge/smoke"
 
     def snapshot(self, *, deployment_phase: int, app_version: str, settings: Any) -> dict[str, object]:
         active = self.get_active_lane()
         real = self.build_real_provider_readiness(settings=settings)
+        lane_status = {lane.get("id"): lane.get("status", "in_progress") for lane in self.list_lanes()}
         return {
             "deployment_phase": deployment_phase,
             "app_version": app_version,
@@ -213,9 +277,12 @@ class InnovationLanes:
             "lanes_total": len(self.list_lanes()),
             "real_providers_ready": real["all_real_ready"],
             "configured_providers": real["configured_providers"],
-            "soul_lane_status": "in_progress",
-            "money_lane_status": "in_progress",
-            "live_lane_status": "in_progress",
+            "soul_lane_status": str(lane_status.get("companion_soul", "in_progress")),
+            "money_lane_status": str(lane_status.get("characters_revenue", "in_progress")),
+            "live_lane_status": str(lane_status.get("live_launch", "in_progress")),
             "live_activate": True,
             "schema_path": self._schema_path,
+            "stage1_status": real["stage1_status"],
+            "stage1_source": real["stage1_source"],
+            "stage1_blocker": real["stage1_blocker"],
         }

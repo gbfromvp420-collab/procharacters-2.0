@@ -197,8 +197,14 @@
               <summary>Innovation · Wire</summary>
               <div class="innovation-body">
                 <div id="innovationStatus" class="innovation-status" aria-live="polite">Expand to load innovation…</div>
+                <div id="innovationStage1Blocker" class="innovation-stage1-blocker" aria-live="polite"></div>
                 <ul id="innovationLaneList" class="innovation-lane-list" aria-live="polite"></ul>
                 <div id="innovationWiringStatus" class="innovation-wiring-status" aria-live="polite"></div>
+                <details id="innovationHowto" class="innovation-howto">
+                  <summary>How to get RunPod proxy URLs</summary>
+                  <ol id="innovationHowtoList" class="innovation-howto-list"></ol>
+                  <a id="innovationRunpodLink" class="innovation-runpod-link" href="https://www.runpod.io/console/pods" target="_blank" rel="noopener noreferrer">Open RunPod console → Pods</a>
+                </details>
                 <form id="innovationWireForm" class="innovation-wire-form">
                   <label class="agent-dispatch-label" for="innovationLlmUrl">LLM proxy URL (ends with /v1)</label>
                   <input id="innovationLlmUrl" class="innovation-input" type="url" maxlength="500" placeholder="https://….proxy.runpod.net/v1" />
@@ -209,8 +215,10 @@
                   <label class="agent-dispatch-label" for="innovationApiKey">Shared API key (optional)</label>
                   <input id="innovationApiKey" class="innovation-input" type="password" maxlength="500" placeholder="RunPod API key…" autocomplete="off" />
                   <div class="innovation-wire-actions">
+                    <button id="innovationLocalStubBtn" class="btn-ghost" type="button">Use local contract stubs</button>
                     <button id="innovationWireBtn" class="btn-ghost innovation-wire-btn" type="submit">Wire + live activate</button>
                     <button id="innovationSmokeBtn" class="btn-ghost" type="button">Forge smoke</button>
+                    <button id="innovationAdvanceBtn" class="btn-ghost" type="button">Advance to next lane</button>
                   </div>
                 </form>
                 <pre id="innovationEnvSnippet" class="innovation-env-snippet" hidden></pre>
